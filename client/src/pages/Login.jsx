@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FiMail,
@@ -16,29 +16,55 @@ import Button from "../components/common/Button";
 export default function Login() {
   const navigate = useNavigate();
 
+  // ✅ SAFE API URL (VERY IMPORTANT)
+  const API_URL =
+    import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({ email: "", password: "" });
-
-  // 🔒 Disable scroll
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "auto";
-    };
-  }, []);
 
   const handleChange = (e) =>
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
-    setTimeout(() => {
+    try {
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
+      });
+
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("Server not responding properly");
+      }
+
+      if (!res.ok) {
+        throw new Error(data.msg || "Login failed");
+      }
+
+      // ✅ Store JWT + user
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      // ✅ Redirect
+      navigate("/");
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
       setLoading(false);
-      console.log("Login:", form);
-    }, 1500);
+    }
   };
 
   const handleGoogleLogin = () => {
@@ -50,16 +76,16 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-50 flex items-center justify-center px-3 sm:px-4 py-6 sm:py-12">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-50 flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12">
 
       {/* Background blobs */}
       <div className="absolute top-0 left-0 w-72 h-72 bg-indigo-200/40 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-80 h-80 bg-violet-200/40 rounded-full blur-3xl translate-x-1/3 translate-y-1/3 pointer-events-none" />
 
-      <div className="relative w-full max-w-sm sm:max-w-md">
+      <div className="relative w-full max-w-md sm:max-w-lg">
 
         {/* Card */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl border border-slate-100 shadow-xl shadow-indigo-100/40 px-5 sm:px-7 py-7 sm:py-8">
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl border border-slate-100 shadow-xl shadow-indigo-100/40 px-6 sm:px-8 py-8 sm:py-10">
 
           {/* Logo */}
           <div className="flex flex-col items-center gap-2 mb-7">
@@ -76,6 +102,13 @@ export default function Login() {
               </p>
             </div>
           </div>
+
+          {/* ERROR */}
+          {error && (
+            <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-lg text-center">
+              {error}
+            </div>
+          )}
 
           {/* FORM */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -115,7 +148,6 @@ export default function Login() {
               </button>
             </div>
 
-            {/* Forgot password */}
             <div className="flex justify-end">
               <button
                 type="button"
@@ -139,12 +171,12 @@ export default function Login() {
             <div className="flex-1 border-t border-slate-200" />
           </div>
 
-          {/* OAuth Buttons */}
+          {/* OAuth */}
           <div className="grid grid-cols-2 gap-2">
 
             <button
               onClick={handleGoogleLogin}
-              className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all duration-150"
+              className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50"
             >
               <FcGoogle className="text-lg" />
               Google
@@ -152,7 +184,7 @@ export default function Login() {
 
             <button
               onClick={handleGithubLogin}
-              className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all duration-150"
+              className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50"
             >
               <FaGithub className="text-lg" />
               GitHub

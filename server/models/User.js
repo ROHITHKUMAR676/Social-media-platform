@@ -1,11 +1,22 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
-const UserSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  bio: { type: String },
-  profilePicture: { type: String },
-}, { timestamps: true });
+const userSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
 
-module.exports = mongoose.model('User', UserSchema);
+    avatar: {
+      type: String,
+      default: "https://api.dicebear.com/7.x/notionists/svg?seed=user",
+    },
+
+    bio: { type: String, default: "" },
+
+    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  },
+  { timestamps: true }
+);
+
+export default mongoose.model("User", userSchema);

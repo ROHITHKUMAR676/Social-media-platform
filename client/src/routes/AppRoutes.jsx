@@ -16,23 +16,21 @@ const AppShell = ({ children }) => (
   </div>
 );
 
-const AuthPage = ({ children }) => (
-  <div className="min-h-screen flex items-center justify-center">
-    {children}
-  </div>
-);
-
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<AuthPage><Login /></AuthPage>} />
-      <Route path="/register" element={<AuthPage><Register /></AuthPage>} />
+      {/* AUTH PAGES (NO WRAPPER) */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
+      {/* MAIN APP */}
       <Route path="/" element={<AppShell><Home /></AppShell>} />
       <Route path="/home" element={<Navigate to="/" replace />} />
       <Route path="/profile" element={<AppShell><Profile /></AppShell>} />
       <Route path="/profile/:username" element={<AppShell><Profile /></AppShell>} />
-    <Route path="/create-profile" element={<CreateProfile />} />
+
+      <Route path="/create-profile" element={<CreateProfile />} />
+
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
