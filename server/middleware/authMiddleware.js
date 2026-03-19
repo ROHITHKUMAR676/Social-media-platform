@@ -39,3 +39,24 @@ export const protect = async (req, res, next) => {
     next(err);
   }
 };
+export const optionalProtect = async (req, res, next) => {
+  let token;
+
+  if (req.headers.authorization?.startsWith("Bearer")) {
+    token = req.headers.authorization.split(" ")[1];
+  }
+
+  if (!token) {
+    return next(); // ✅ continue without user
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    req.user = await User.findById(decoded.id).select("-password");
+  } catch (err) {
+    console.log("Optional auth failed");
+  }
+
+  next();
+};

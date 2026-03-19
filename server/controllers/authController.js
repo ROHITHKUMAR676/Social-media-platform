@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { sendEmail } from "../config/mailer.js";
 import generateToken from "../utils/generateToken.js";
 
@@ -113,43 +114,50 @@ export const verifyOtp = async (req, res, next) => {
   }
 };
 
-// 🔐 LOGIN
-export const loginUser = async (req, res, next) => {
+export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      res.status(400);
-      throw new Error("Email and password are required");
-    }
+    console.log("LOGIN BODY:", req.body);
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
-      res.status(400);
-      throw new Error("Invalid credentials");
+      return res.status(400).json({ msg: "Invalid credentials" });
+    }
+
+    if (!user.password) {
+      return res.status(500).json({ msg: "Password missing in DB" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      res.status(400);
-      throw new Error("Invalid credentials");
+      return res.status(400).json({ msg: "Invalid credentials" });
     }
 
-    const token = generateToken(user._id);
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET not defined");
+    }
 
-    res.status(200).json({
-      success: true,
-      message: "Login successful",
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      msg: "Login success",
       token,
       user: {
         id: user._id,
-        username: user.name,
+        name: user.name,
         email: user.email,
       },
     });
+
   } catch (err) {
-    next(err);
+    console.error("LOGIN ERROR:", err); // 🔥 VERY IMPORTANT
+    res.status(500).json({ msg: "Server error" });
   }
 };

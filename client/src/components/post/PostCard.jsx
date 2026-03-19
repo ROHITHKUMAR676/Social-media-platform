@@ -6,218 +6,166 @@ import {
   FiBookmark,
   FiShare2,
   FiMoreHorizontal,
-  FiZap,
 } from "react-icons/fi";
+
+import { useAuth } from "../../context/AuthContext";
+import api from "../../services/api";
 
 export default function PostCard({ post, onDelete }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
+  // 🔥 BACKEND DATA FIX
   const {
-    avatar,
-    username,
-    handle,
-    time,
+    _id,
     content,
     image,
-    likes: initialLikes = 0,
-    comments = 0,
-    tag,
+    createdAt,
+    user: postUser,
+    likes = [],
+    comments = [],
   } = post;
 
-  const [liked, setLiked] = useState(false);
-  const [likes, setLikes] = useState(initialLikes);
+  const isLikedInitially = likes.includes(user?.id);
+
+  const [liked, setLiked] = useState(isLikedInitially);
+  const [likeCount, setLikeCount] = useState(likes.length);
   const [saved, setSaved] = useState(false);
   const [showComments, setShowComments] = useState(false);
 
-  const [commentList, setCommentList] = useState([
-    { id: 1, user: "john_doe", text: "🔥 This is awesome!" },
-    { id: 2, user: "dev_girl", text: "Really helpful post 🙌" },
-  ]);
+  // 🔥 OWNER CHECK
+  const isOwner = postUser?._id === user?.id;
 
-  const [newComment, setNewComment] = useState("");
+  // ❤️ REAL LIKE SYSTEM
+  const handleLike = async () => {
+    try {
+      // optimistic UI
+      setLiked((prev) => !prev);
+      setLikeCount((prev) => (liked ? prev - 1 : prev + 1));
 
-  // ✅ Only allow delete if current user
-  const isOwner = handle === "you";
+      await api.put(`/posts/${_id}/like`);
+    } catch (err) {
+      console.error("Like failed", err);
 
-  // Like logic
-  const handleLike = () => {
-    setLiked((prev) => {
-      const newLiked = !prev;
-      setLikes((l) => (newLiked ? l + 1 : l - 1));
-      return newLiked;
-    });
+      // rollback
+      setLiked((prev) => !prev);
+      setLikeCount((prev) => (liked ? prev + 1 : prev - 1));
+    }
   };
 
-  // Delete logic
+  // 🗑 DELETE
   const handleDelete = () => {
     if (window.confirm("Delete this post?")) {
-      onDelete(post.id);
+      onDelete?.(_id);
     }
   };
 
   return (
-    <article className="group bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:shadow-indigo-100/50 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden">
+    <article className="bg-white/80 backdrop-blur-sm rounded-2xl border shadow-sm hover:shadow-md transition overflow-hidden">
 
-      {/* Header */}
-      <div className="flex items-start justify-between px-4 pt-4 pb-3">
+      {/* HEADER */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3">
+
         <div
           className="flex items-center gap-3 cursor-pointer"
-          onClick={() => navigate(`/profile/${handle}`)}
+          onClick={() => navigate(`/profile/${postUser?.name}`)}
         >
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl overflow-hidden ring-2 ring-offset-1 ring-indigo-200">
-              <img src={avatar} alt={username} />
-            </div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden">
+            <img
+              src={postUser?.avatar}
+              alt="avatar"
+              className="w-full h-full object-cover"
+            />
           </div>
 
           <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-bold text-slate-800">
-                {username}
-              </span>
-              {tag && (
-                <span className="inline-flex items-center gap-0.5 text-[9px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-md">
-                  <FiZap className="text-[8px]" />
-                  {tag}
-                </span>
-              )}
-            </div>
+            <span className="text-sm font-bold">
+              {postUser?.name}
+            </span>
             <p className="text-xs text-slate-400">
-              @{handle} · {time}
+              @{postUser?.name}
             </p>
           </div>
         </div>
 
-        {/* 3-dot menu (ONLY for owner) */}
+        {/* OWNER MENU */}
         {isOwner && (
-          <div className="relative group">
-            <button className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg">
-              <FiMoreHorizontal />
-            </button>
-
-            <div className="absolute right-0 mt-2 hidden group-hover:block bg-white shadow-md rounded-lg p-2 z-10">
-              <button
-                onClick={handleDelete}
-                className="text-sm text-red-500 hover:bg-red-50 px-3 py-1 rounded"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={handleDelete}
+            className="text-red-500 text-sm"
+          >
+            Delete
+          </button>
         )}
       </div>
 
-      {/* Content */}
+      {/* CONTENT */}
       <div className="px-4 pb-3">
         <p className="text-sm text-slate-700">{content}</p>
       </div>
 
-      {/* Image */}
+      {/* IMAGE */}
       {image && (
         <div className="mx-4 mb-3 rounded-xl overflow-hidden">
-          <img
-            src={image}
-            alt="Post"
-            className="w-full max-h-72 object-cover"
-          />
+          <img src={image} className="w-full max-h-72 object-cover" />
         </div>
       )}
 
-      <div className="mx-4 border-t border-slate-100" />
+      <div className="mx-4 border-t" />
 
-      {/* Actions */}
+      {/* ACTIONS */}
       <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-1">
 
-          {/* Like */}
+        <div className="flex items-center gap-2">
+
+          {/* LIKE */}
           <button
             onClick={handleLike}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-sm ${
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm ${
               liked
                 ? "text-rose-500 bg-rose-50"
-                : "text-slate-500 hover:text-rose-500 hover:bg-rose-50"
+                : "text-slate-500 hover:bg-rose-50"
             }`}
           >
             <FiHeart className={liked ? "fill-rose-500" : ""} />
-            <span>{likes}</span>
+            {likeCount}
           </button>
 
-          {/* Comment */}
+          {/* COMMENTS */}
           <button
-            onClick={() => setShowComments((prev) => !prev)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-sm text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
+            onClick={() => setShowComments((p) => !p)}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm text-slate-500 hover:bg-indigo-50"
           >
             <FiMessageCircle />
-            <span>{commentList.length}</span>
+            {comments.length}
           </button>
 
-          {/* Share */}
+          {/* SHARE */}
           <button
             onClick={() => {
               navigator.clipboard.writeText(window.location.href);
-              alert("Link copied!");
             }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-sm text-slate-500 hover:text-sky-500 hover:bg-sky-50"
+            className="px-3 py-1.5 text-slate-500 hover:bg-sky-50 rounded-xl"
           >
             <FiShare2 />
           </button>
         </div>
 
-        {/* Save */}
+        {/* SAVE */}
         <button
-          onClick={() => setSaved((prev) => !prev)}
+          onClick={() => setSaved((p) => !p)}
           className={`p-2 rounded-xl ${
-            saved
-              ? "text-violet-600 bg-violet-50"
-              : "text-slate-400 hover:text-violet-600 hover:bg-violet-50"
+            saved ? "text-violet-600 bg-violet-50" : "text-slate-400"
           }`}
         >
           <FiBookmark className={saved ? "fill-violet-500" : ""} />
         </button>
       </div>
 
-      {/* Comments */}
+      {/* COMMENTS UI (keep simple) */}
       {showComments && (
-        <div className="px-4 pb-4 flex flex-col gap-3">
-
-          {commentList.map((c) => (
-            <div key={c.id} className="text-sm">
-              <span className="font-semibold text-slate-700">@{c.user} </span>
-              <span className="text-slate-600">{c.text}</span>
-            </div>
-          ))}
-
-          <div className="flex items-center gap-2 mt-2">
-            <input
-              type="text"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Write a comment..."
-              className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
-            />
-
-            <button
-              onClick={() => {
-                if (!newComment.trim()) return;
-
-                setCommentList((prev) => [
-                  ...prev,
-                  {
-                    id: Date.now(),
-                    user: "you",
-                    text: newComment,
-                  },
-                ]);
-
-                setNewComment("");
-              }}
-              className="px-3 py-2 text-sm bg-indigo-500 text-white rounded-xl hover:bg-indigo-600"
-            >
-              Post
-            </button>
-          </div>
-
+        <div className="px-4 pb-4 text-sm text-slate-500">
+          Comments coming soon 💬
         </div>
       )}
     </article>

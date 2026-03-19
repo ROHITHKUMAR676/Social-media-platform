@@ -11,8 +11,6 @@ import {
 import Input from "../components/common/Input";
 import Button from "../components/common/Button";
 import { useAuth } from "../context/AuthContext";
-
-// ✅ IMPORT SERVICE
 import { login as loginUser } from "../services/authService";
 
 export default function Login() {
@@ -34,54 +32,46 @@ export default function Login() {
 
     try {
       const data = await loginUser(form);
-
-      // ✅ context login
       login(data.user, data.token);
-
       navigate("/");
     } catch (err) {
-      console.error(err);
-      setError(err.message || err.msg || "Login failed");
+      setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = () => {
-    console.log("Google login clicked");
-  };
-
-  const handleGithubLogin = () => {
-    console.log("GitHub login clicked");
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-50 flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12">
-      <div className="relative w-full max-w-md sm:max-w-lg">
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl border border-slate-100 shadow-xl px-6 sm:px-8 py-8 sm:py-10">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-50 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 
-          <div className="flex flex-col items-center gap-2 mb-7">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
-              <FiZap className="text-white text-xl" />
+      <div className="w-full max-w-md sm:max-w-lg lg:max-w-xl">
+
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl border border-slate-100 shadow-xl px-6 sm:px-8 lg:px-10 py-8 sm:py-10 lg:py-12 transition-all">
+
+          {/* 🔥 BRAND */}
+          <div className="flex flex-col items-center gap-2 mb-6 sm:mb-8">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md">
+              <FiZap className="text-white text-xl sm:text-2xl" />
             </div>
 
-            <div className="text-center">
-              <h1 className="text-xl font-black text-slate-800">
-                Skill<span className="text-indigo-600">Sphere</span>
-              </h1>
-              <p className="text-sm text-slate-500">
-                Welcome back 👋
-              </p>
-            </div>
+            <h1 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-800">
+              Dev<span className="text-indigo-600">Connect</span>
+            </h1>
+
+            <p className="text-xs sm:text-sm text-slate-500">
+              Welcome back 👋
+            </p>
           </div>
 
+          {/* 🔥 ERROR */}
           {error && (
-            <div className="mb-4 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg text-center">
+            <div className="mb-4 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg text-center border border-red-100">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* 🔥 FORM */}
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:gap-5">
 
             <Input
               name="email"
@@ -107,26 +97,28 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[38px]"
+                className="absolute right-3 top-[38px] text-slate-500 hover:text-indigo-600 transition"
               >
                 {showPassword ? <FiEyeOff /> : <FiEye />}
               </button>
             </div>
 
             <Button type="submit" loading={loading}>
-              Sign In
+              {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
 
-          <p className="text-center text-sm mt-6">
+          {/* 🔥 FOOTER */}
+          <p className="text-center text-xs sm:text-sm mt-6 text-slate-600">
             No account?{" "}
             <button
               onClick={() => navigate("/register")}
-              className="text-indigo-600"
+              className="text-indigo-600 font-medium hover:underline"
             >
               Create one →
             </button>
           </p>
+
         </div>
       </div>
     </div>

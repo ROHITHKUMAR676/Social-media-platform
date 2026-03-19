@@ -1,67 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext"; // ✅ ADD THIS
+import { useAuth } from "../context/AuthContext";
+import api from "../services/api";
 
 import PostCard from "../components/post/PostCard";
 import CreatePost from "../components/post/CreatePost";
 import { FiTrendingUp, FiUsers, FiZap } from "react-icons/fi";
 
 const STORIES = [
-  { id: 1, username: "alex_dev", avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=alex", active: true },
-  { id: 2, username: "priya_ui", avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=priya", active: false },
-  { id: 3, username: "sam_ml", avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=sam", active: true },
-  { id: 4, username: "nina_ux", avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=nina", active: false },
-  { id: 5, username: "raj_db", avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=raj", active: true },
+  { id: 1, username: "alex_dev", avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=alex" },
+  { id: 2, username: "priya_ui", avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=priya" },
 ];
 
-const INITIAL_POSTS = [
+const FALLBACK_POSTS = [
   {
-    id: 1,
-    avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=alex",
-    username: "Alex Kumar",
-    handle: "alex_dev",
-    time: "2m ago",
-    tag: "Pro",
-    content:
-      "Just shipped a full-stack auth system using Next.js + Prisma + JWT in under 3 hours 🚀",
-    image:
-      "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop",
-    likes: 142,
-    comments: 18,
-  },
-  {
-    id: 2,
-    avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=priya",
-    username: "Priya Sharma",
-    handle: "priya_ui",
-    time: "15m ago",
-    tag: "Design",
-    content:
-      "Redesigned onboarding — reduced drop-off by 34%. Less is more ✨",
-    likes: 89,
-    comments: 7,
+    _id: "fallback-1",
+    user: {
+      name: "DevConnect",
+      username: "devconnect",
+      avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=dev",
+    },
+    content: "Welcome to DevConnect 🚀 Start connecting with developers!",
+    createdAt: new Date(),
   },
 ];
 
-const TRENDING = [
-  { tag: "#ReactJS" },
-  { tag: "#OpenSource" },
-  { tag: "#UIDesign" },
-];
-
-const SUGGESTIONS = [
-  { username: "kai_backend" },
-  { username: "lena_devrel" },
-  { username: "omar_ios" },
-];
+const TRENDING = ["#ReactJS", "#OpenSource", "#UIDesign"];
+const SUGGESTIONS = ["kai_backend", "lena_devrel", "omar_ios"];
 
 export default function Home() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  const { user } = useAuth(); // ✅ REAL AUTH STATE
-  const isLoggedIn = !!user;  // ✅ true if user exists
+  const isLoggedIn = !!user;
 
-  const [posts, setPosts] = useState(INITIAL_POSTS);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
 
   const requireLogin = () => {
@@ -72,23 +46,57 @@ export default function Home() {
     return true;
   };
 
+  // 🔥 FETCH POSTS
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const res = await api.get("/posts");
+        const data = res.data.posts;
+
+        if (!data || data.length === 0) {
+          setPosts(FALLBACK_POSTS); // ✅ fallback
+        } else {
+          setPosts(data);
+        }
+      } catch (err) {
+        console.error("Feed error", err);
+        setPosts(FALLBACK_POSTS); // ✅ fallback on error
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPosts();
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-indigo-50/40 to-violet-50/50">
-      <div className="max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 md:pb-8">
-        <div className="flex gap-6 items-start">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-indigo-50/30 to-violet-50/40">
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 md:pb-10">
+
+        <div className="flex gap-6">
+
+          {/* LEFT */}
+          <aside className="hidden md:flex flex-col w-64 gap-4">
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <h2 className="font-semibold mb-2">DevConnect</h2>
+              <p className="text-sm text-slate-500">
+                Connect with developers worldwide 🚀
+              </p>
+            </div>
+          </aside>
 
           {/* MAIN */}
-          <main className="flex-1 flex flex-col gap-4">
+          <main className="flex-1 max-w-2xl mx-auto flex flex-col gap-4">
 
-            {/* Stories */}
-            <section className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-100 shadow-sm p-4">
+            {/* STORIES */}
+            <section className="bg-white/80 rounded-2xl p-4">
               <div className="flex gap-3 overflow-x-auto">
-
                 <button
                   onClick={() => requireLogin()}
-                  className="flex flex-col items-center gap-1.5"
+                  className="flex flex-col items-center"
                 >
-                  <div className="w-14 h-14 rounded-2xl bg-indigo-500 flex items-center justify-center">
+                  <div className="w-14 h-14 bg-indigo-500 text-white rounded-2xl flex items-center justify-center">
                     +
                   </div>
                   <span className="text-xs">Your story</span>
@@ -98,16 +106,14 @@ export default function Home() {
                   <button
                     key={s.id}
                     onClick={() => navigate(`/profile/${s.username}`)}
-                    className="flex flex-col items-center"
                   >
                     <img src={s.avatar} className="w-14 h-14 rounded-xl" />
-                    <span className="text-xs">{s.username}</span>
                   </button>
                 ))}
               </div>
             </section>
 
-            {/* Create Post */}
+            {/* CREATE POST */}
             {isLoggedIn ? (
               <CreatePost
                 onCreatePost={(newPost) =>
@@ -119,105 +125,69 @@ export default function Home() {
                 onClick={() => requireLogin()}
                 className="bg-white p-4 rounded-xl text-center cursor-pointer"
               >
-                Login to create a post
+                Login to share 🚀
               </div>
             )}
 
-            {/* Feed */}
+            {/* FEED */}
             <div className="flex flex-col gap-3">
-              {posts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  onDelete={(id) =>
-                    setPosts((prev) => prev.filter((p) => p.id !== id))
-                  }
-                />
-              ))}
+
+              {loading ? (
+                <div className="text-center text-slate-400 py-10">
+                  Loading feed...
+                </div>
+              ) : (
+                posts.map((post) => (
+                  <PostCard
+                    key={post._id} // ✅ FIXED
+                    post={post}
+                  />
+                ))
+              )}
+
             </div>
+
           </main>
 
-          {/* SIDEBAR */}
+          {/* RIGHT */}
           <aside className="hidden lg:flex flex-col gap-4 w-72">
 
-            {/* Trending */}
             <div className="bg-white p-4 rounded-2xl">
               <div className="flex items-center gap-2 mb-2">
                 <FiTrendingUp />
                 <h2>Trending</h2>
               </div>
-
               {TRENDING.map((t) => (
-                <button
-                  key={t.tag}
-                  onClick={() => requireLogin()}
-                  className="block w-full text-left py-1"
-                >
-                  {t.tag}
-                </button>
+                <div key={t}>{t}</div>
               ))}
             </div>
 
-            {/* Suggestions */}
             <div className="bg-white p-4 rounded-2xl">
               <div className="flex items-center gap-2 mb-2">
                 <FiUsers />
                 <h2>Suggested</h2>
               </div>
-
               {SUGGESTIONS.map((s) => (
-                <button
-                  key={s.username}
-                  onClick={() => {
-                    if (!requireLogin()) return;
-                    navigate(`/profile/${s.username}`);
-                  }}
-                  className="block w-full text-left py-1"
-                >
-                  @{s.username}
-                </button>
+                <div key={s}>@{s}</div>
               ))}
             </div>
 
-            {/* CTA */}
             <div className="bg-indigo-500 text-white p-4 rounded-2xl">
-              <div className="flex items-center gap-2 mb-2">
-                <FiZap />
-                <span>SkillSphere Pro</span>
-              </div>
-
-              <button onClick={() => requireLogin()}>
-                Upgrade →
-              </button>
+              <FiZap />
+              <p>DevConnect Pro</p>
             </div>
+
           </aside>
+
         </div>
       </div>
 
       {/* LOGIN POPUP */}
       {showLoginPopup && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-80 text-center shadow-lg">
-            <h2 className="text-lg font-bold mb-2">Login Required</h2>
-            <p className="text-sm text-slate-500 mb-4">
-              Please login to continue
-            </p>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowLoginPopup(false)}
-                className="flex-1 py-2 rounded-xl bg-slate-100"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={() => navigate("/login")}
-                className="flex-1 py-2 rounded-xl bg-indigo-500 text-white"
-              >
-                Login
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-2xl text-center">
+            <p>Please login</p>
+            <button onClick={() => navigate("/login")}>Login</button>
           </div>
         </div>
       )}

@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   FiHome,
   FiPlusSquare,
@@ -8,11 +7,13 @@ import {
   FiMessageCircle,
 } from "react-icons/fi";
 
-import { useAuth } from "../../context/AuthContext"; // ✅ ADD
+import { useAuth } from "../../context/AuthContext";
 
 export default function BottomNav() {
   const navigate = useNavigate();
-  const { user } = useAuth(); // ✅ REAL AUTH
+  const location = useLocation();
+  const { user } = useAuth();
+
   const isLoggedIn = !!user;
 
   const tabs = [
@@ -23,36 +24,34 @@ export default function BottomNav() {
     { icon: FiUser, label: "Profile", path: "/profile", protected: true },
   ];
 
-  const [active, setActive] = useState("Home");
-
   const handleProtected = () => {
-    alert("Please login to access this feature");
     navigate("/login");
   };
 
   const handleClick = (tab) => {
-    // 🔒 block if not logged in
     if (tab.protected && !isLoggedIn) {
       return handleProtected();
     }
 
-    setActive(tab.label);
-
     if (tab.path) {
       navigate(tab.path);
     } else if (tab.action === "create") {
-      alert("Create feature");
+      alert("Create feature coming soon 🚀");
     }
   };
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50">
-      <div className="mx-3 mb-3 rounded-2xl bg-white/80 backdrop-blur-xl border border-white/70 shadow-xl shadow-indigo-100/50">
+      <div className="mx-3 mb-3 rounded-2xl bg-white/85 backdrop-blur-xl border border-white/70 shadow-xl shadow-indigo-100/50">
         <div className="flex items-center justify-around px-2 py-2">
 
           {tabs.map((tab) => {
             const Icon = tab.icon;
-            const isActive = active === tab.label;
+
+            // ✅ ACTIVE BASED ON ROUTE
+            const isActive =
+              tab.path && location.pathname === tab.path;
+
             const isCreate = tab.label === "Create";
 
             return (
@@ -69,7 +68,7 @@ export default function BottomNav() {
                   }`}
               >
                 <Icon
-                  className={`text-xl ${
+                  className={`text-xl transition ${
                     isActive && !isCreate ? "scale-110" : ""
                   }`}
                 />
@@ -82,9 +81,9 @@ export default function BottomNav() {
                   {tab.label}
                 </span>
 
-                {/* Active dot */}
+                {/* 🔥 Active indicator */}
                 {isActive && !isCreate && (
-                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-indigo-500" />
+                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-indigo-500" />
                 )}
               </button>
             );

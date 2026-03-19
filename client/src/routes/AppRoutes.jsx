@@ -11,12 +11,36 @@ import Profile from "../pages/Profile";
 import NotFound from "../pages/NotFound";
 import CreateProfile from "../pages/CreateProfile";
 
-// 🧱 Layout Wrapper
+// 🧱 Layout Wrapper (UPDATED FOR DESKTOP)
 const AppShell = ({ children }) => (
-  <div className="flex flex-col min-h-screen">
+  <div className="min-h-screen bg-slate-50">
+
+    {/* 🔝 Navbar (top for all) */}
     <Navbar />
-    <div className="flex-1">{children}</div>
-    <BottomNav />
+
+    {/* 🔥 MAIN LAYOUT */}
+    <div className="flex max-w-6xl mx-auto">
+
+      {/* 📌 LEFT SIDEBAR (desktop only for future use) */}
+      <div className="hidden md:block w-1/4 p-4">
+        {/* Future sidebar */}
+      </div>
+
+      {/* 🧠 MAIN CONTENT */}
+      <div className="flex-1 p-3 md:p-6">
+        {children}
+      </div>
+
+      {/* 📌 RIGHT SIDEBAR (desktop only) */}
+      <div className="hidden md:block w-1/4 p-4">
+        {/* Future suggestions */}
+      </div>
+    </div>
+
+    {/* 📱 Bottom Nav (mobile only) */}
+    <div className="md:hidden">
+      <BottomNav />
+    </div>
   </div>
 );
 
@@ -24,12 +48,12 @@ const AppShell = ({ children }) => (
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
-  if (loading) return null; // or loader
+  if (loading) return null;
 
   return user ? children : <Navigate to="/login" replace />;
 };
 
-// 🚫 Public Route (prevent logged-in users from going to login/register)
+// 🚫 Public Route
 const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
@@ -55,17 +79,16 @@ export default function AppRoutes() {
         </PublicRoute>
       } />
 
-      {/* 🔐 MAIN APP */}
+      {/* 🌍 PUBLIC HOME (FIXED 🔥) */}
       <Route path="/" element={
-        <PrivateRoute>
-          <AppShell>
-            <Home />
-          </AppShell>
-        </PrivateRoute>
+        <AppShell>
+          <Home />
+        </AppShell>
       } />
 
       <Route path="/home" element={<Navigate to="/" replace />} />
 
+      {/* 🔐 PROTECTED */}
       <Route path="/profile" element={
         <PrivateRoute>
           <AppShell>

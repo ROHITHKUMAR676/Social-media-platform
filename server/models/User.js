@@ -2,9 +2,17 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
+    // 🔹 Basic Info
     name: {
       type: String,
       required: true,
+      trim: true,
+    },
+
+    username: {
+      type: String,
+      unique: true,
+      sparse: true,
       trim: true,
     },
 
@@ -20,12 +28,18 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-      select: false, // 🔥 Hide password by default
+      select: false,
     },
 
+    // 🔹 Profile
     avatar: {
       type: String,
       default: "https://api.dicebear.com/7.x/notionists/svg?seed=user",
+    },
+
+    cover: {
+      type: String,
+      default: "",
     },
 
     bio: {
@@ -34,6 +48,45 @@ const userSchema = new mongoose.Schema(
       maxlength: 200,
     },
 
+    // 🔹 Professional Info
+    skills: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+
+    location: {
+      type: String,
+      default: "",
+    },
+
+    github: {
+      type: String,
+      default: "",
+    },
+
+    linkedin: {
+      type: String,
+      default: "",
+    },
+
+    college: {
+      type: String,
+      default: "",
+    },
+
+    school: {
+      type: String,
+      default: "",
+    },
+
+    year: {
+      type: String,
+      default: "",
+    },
+
+    // 🔹 Social
     followers: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -51,7 +104,8 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// 🔥 Index for faster queries
+// 🔥 Indexes
 userSchema.index({ email: 1 });
+userSchema.index({ username: 1 });
 
 export default mongoose.model("User", userSchema);

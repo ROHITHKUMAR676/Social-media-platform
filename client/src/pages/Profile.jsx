@@ -19,73 +19,97 @@ export default function Profile() {
   const { username } = useParams();
   const navigate = useNavigate();
 
+  const [profileUser, setProfileUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+
   const isOwnProfile = !username || username === user?.name;
 
-  // 🔥 Fetch posts
+  // 🔥 FETCH PROFILE USER
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        if (isOwnProfile) {
+          setProfileUser(user);
+          setFollowersCount(user.followers?.length || 0);
+          return;
+        }
+
+        const res = await api.get(`/users/profile/${username}`);
+        const data = res.data.user;
+
+        setProfileUser(data);
+        setFollowersCount(data.followers?.length || 0);
+
+        // 🔥 check following
+        setIsFollowing(
+          data.followers?.includes(user.id)
+        );
+      } catch (err) {
+        console.error("Profile fetch failed", err);
+      }
+    };
+
+    fetchProfile();
+  }, [username, user]);
+
+  // 🔥 FETCH POSTS
   useEffect(() => {
     const fetchPosts = async () => {
       try {
         const res = await api.get("/posts");
-        setPosts(res.data.posts || []);
+        const allPosts = res.data.posts || [];
+
+        const filtered = allPosts.filter(
+          (p) => p.user?._id === profileUser?._id
+        );
+
+        setPosts(filtered);
       } catch (err) {
-        console.error("Failed to load posts", err);
+        console.error(err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPosts();
-  }, []);
+    if (profileUser?._id) {
+      fetchPosts();
+    }
+  }, [profileUser]);
 
-  if (!user) {
+  if (!user || !profileUser) {
     return (
       <div className="text-center mt-20 text-slate-500">
-        Please login
+        Loading profile...
       </div>
     );
   }
 
-  const profileUser = isOwnProfile
-    ? user
-    : {
-        name: username,
-        bio: "User bio...",
-      };
-
   const letter = profileUser.name?.charAt(0).toUpperCase();
 
-  // 🔥 HANDLE AVATAR CHANGE
-  const handleAvatarChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  // 🔥 FOLLOW
+  const handleFollow = async () => {
+    try {
+      const res = await api.put(`/users/follow/${profileUser._id}`);
 
-    const url = URL.createObjectURL(file);
+      setIsFollowing(res.data.isFollowing);
 
-    const updated = { ...user, avatar: url };
-    setUser(updated);
-    localStorage.setItem("user", JSON.stringify(updated));
-  };
-
-  // 🔥 HANDLE COVER CHANGE
-  const handleCoverChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const url = URL.createObjectURL(file);
-
-    const updated = { ...user, cover: url };
-    setUser(updated);
-    localStorage.setItem("user", JSON.stringify(updated));
+      setFollowersCount((prev) =>
+        res.data.isFollowing ? prev + 1 : prev - 1
+      );
+    } catch (err) {
+      console.error("Follow failed", err);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-indigo-50/20 to-violet-50/30 pb-24">
 
       {/* COVER */}
-      <div className="h-40 md:h-52 w-full relative group">
+      <div className="relative h-40 md:h-56 w-full">
         <img
           src={
             profileUser.cover ||
@@ -93,37 +117,20 @@ export default function Profile() {
           }
           className="w-full h-full object-cover"
         />
-
-        {isOwnProfile && (
-          <label className="absolute top-3 right-3 bg-white/90 p-2 rounded-xl cursor-pointer shadow hover:scale-105 transition">
-            <FiCamera />
-            <input type="file" className="hidden" onChange={handleCoverChange} />
-          </label>
-        )}
       </div>
 
-      {/* PROFILE */}
-      <div className="max-w-xl mx-auto px-3 mt-4">
+      <div className="max-w-3xl mx-auto px-4">
 
-        <div className="bg-white rounded-2xl shadow-md px-5 py-5 mb-4">
+        <div className="bg-white rounded-2xl shadow-md px-5 py-6 -mt-12 relative z-10">
 
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex justify-between items-start">
 
             {/* AVATAR */}
-            <div className="relative group">
-              <div className="w-16 h-16 rounded-2xl bg-indigo-500 text-white flex items-center justify-center text-xl font-bold overflow-hidden">
-                {profileUser.avatar ? (
-                  <img src={profileUser.avatar} className="w-full h-full object-cover" />
-                ) : (
-                  letter
-                )}
-              </div>
-
-              {isOwnProfile && (
-                <label className="absolute bottom-0 right-0 bg-white p-1 rounded-full cursor-pointer shadow opacity-0 group-hover:opacity-100 transition">
-                  <FiCamera size={12} />
-                  <input type="file" className="hidden" onChange={handleAvatarChange} />
-                </label>
+            <div className="w-20 h-20 rounded-2xl overflow-hidden border-4 border-white">
+              {profileUser.avatar ? (
+                <img src={profileUser.avatar} className="w-full h-full object-cover" />
+              ) : (
+                letter
               )}
             </div>
 
@@ -133,73 +140,59 @@ export default function Profile() {
                 <>
                   <button
                     onClick={() => navigate("/create-profile")}
-                    className="px-3 py-1.5 rounded-xl bg-indigo-500 text-white text-sm flex items-center gap-1"
+                    className="px-3 py-1.5 rounded-xl bg-indigo-500 text-white text-sm"
                   >
-                    <FiEdit2 />
                     Edit
                   </button>
 
                   <button
                     onClick={logout}
-                    className="px-3 py-1.5 rounded-xl bg-red-100 text-red-500 text-sm flex items-center gap-1"
+                    className="px-3 py-1.5 rounded-xl bg-red-100 text-red-500 text-sm"
                   >
-                    <FiLogOut />
+                    Logout
                   </button>
                 </>
               ) : (
-                <button className="px-4 py-2 rounded-xl bg-indigo-500 text-white text-sm">
-                  Follow
+                <button
+                  onClick={handleFollow}
+                  className={`px-4 py-2 rounded-xl text-sm ${
+                    isFollowing
+                      ? "bg-slate-200"
+                      : "bg-indigo-500 text-white"
+                  }`}
+                >
+                  {isFollowing ? "Following" : "Follow"}
                 </button>
               )}
             </div>
           </div>
 
-          {/* NAME */}
-          <h1 className="text-lg font-black">
-            {profileUser.name}
-          </h1>
-          <p className="text-sm text-slate-500">
-            @{profileUser.name}
-          </p>
-
-          {/* BIO */}
-          <p className="text-sm mt-2">
-            {profileUser.bio || "No bio yet"}
-          </p>
+          {/* INFO */}
+          <div className="mt-3">
+            <h1 className="text-xl font-bold">{profileUser.name}</h1>
+            <p className="text-sm text-slate-500">@{profileUser.name}</p>
+            <p className="text-sm mt-2">{profileUser.bio}</p>
+          </div>
 
           {/* STATS */}
-          {isOwnProfile && (
-            <div className="flex gap-6 mt-4 text-center">
-              <div>
-                <p className="font-bold">{posts.length}</p>
-                <p className="text-xs text-slate-400">Posts</p>
-              </div>
-              <div>
-                <p className="font-bold">{user.followers?.length || 0}</p>
-                <p className="text-xs text-slate-400">Followers</p>
-              </div>
-              <div>
-                <p className="font-bold">{user.following?.length || 0}</p>
-                <p className="text-xs text-slate-400">Following</p>
-              </div>
+          <div className="flex gap-6 mt-4 text-center">
+            <div>
+              <p className="font-bold">{posts.length}</p>
+              <p className="text-xs text-slate-400">Posts</p>
             </div>
-          )}
-        </div>
-
-        {/* TABS */}
-        <div className="flex gap-1 bg-white rounded-2xl p-1 mb-4">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              className="flex-1 py-2 rounded-xl text-sm text-slate-600 flex justify-center"
-            >
-              {tab === "Posts" ? <FiGrid /> : <FiBookmark />}
-            </button>
-          ))}
+            <div>
+              <p className="font-bold">{followersCount}</p>
+              <p className="text-xs text-slate-400">Followers</p>
+            </div>
+            <div>
+              <p className="font-bold">{profileUser.following?.length || 0}</p>
+              <p className="text-xs text-slate-400">Following</p>
+            </div>
+          </div>
         </div>
 
         {/* POSTS */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 mt-4">
           {loading ? (
             <div className="text-center text-slate-400 py-10">
               Loading posts...
