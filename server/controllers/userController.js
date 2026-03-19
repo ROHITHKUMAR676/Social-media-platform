@@ -1,11 +1,20 @@
-const User = require('../models/User');
+import User from "../models/User.js";
 
-exports.getProfile = async (req, res) => {
+// 👤 Get Logged-in User Profile
+export const getProfile = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
-    res.json(user);
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      res.status(404);
+      throw new Error("User not found");
+    }
+
+    res.status(200).json({
+      success: true,
+      user,
+    });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    next(err);
   }
 };

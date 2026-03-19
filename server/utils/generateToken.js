@@ -1,6 +1,13 @@
-const jwt = require('jsonwebtoken');
-const { jwtSecret } = require('../config/jwt');
+import jwt from "jsonwebtoken";
 
-module.exports = (payload) => {
-  return jwt.sign(payload, jwtSecret, { expiresIn: '1h' });
+const generateToken = (userId) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET is not defined");
+  }
+
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+    expiresIn: "7d",
+  });
 };
+
+export default generateToken;

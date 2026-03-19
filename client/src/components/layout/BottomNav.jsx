@@ -3,32 +3,45 @@ import { useNavigate } from "react-router-dom";
 import {
   FiHome,
   FiPlusSquare,
-  FiBell,
   FiUser,
   FiUsers,
   FiMessageCircle,
 } from "react-icons/fi";
 
+import { useAuth } from "../../context/AuthContext"; // ✅ ADD
+
 export default function BottomNav() {
   const navigate = useNavigate();
+  const { user } = useAuth(); // ✅ REAL AUTH
+  const isLoggedIn = !!user;
 
   const tabs = [
     { icon: FiHome, label: "Home", path: "/" },
-    { icon: FiUsers, label: "Forums", path: "/forums" }, // ✅ NEW
-    { icon: FiPlusSquare, label: "Create", action: "create" },
-    { icon: FiMessageCircle, label: "Messages", path: "/messages" }, // ✅ NEW
-    { icon: FiUser, label: "Profile", path: "/profile" },
+    { icon: FiUsers, label: "Forums", path: "/forums", protected: true },
+    { icon: FiPlusSquare, label: "Create", action: "create", protected: true },
+    { icon: FiMessageCircle, label: "Messages", path: "/messages", protected: true },
+    { icon: FiUser, label: "Profile", path: "/profile", protected: true },
   ];
 
   const [active, setActive] = useState("Home");
 
+  const handleProtected = () => {
+    alert("Please login to access this feature");
+    navigate("/login");
+  };
+
   const handleClick = (tab) => {
+    // 🔒 block if not logged in
+    if (tab.protected && !isLoggedIn) {
+      return handleProtected();
+    }
+
     setActive(tab.label);
 
     if (tab.path) {
       navigate(tab.path);
     } else if (tab.action === "create") {
-      alert("Create feature"); // later modal
+      alert("Create feature");
     }
   };
 
@@ -49,7 +62,7 @@ export default function BottomNav() {
                 className={`relative flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-xl transition-all duration-200
                   ${
                     isCreate
-                      ? "bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-300/50 scale-105 hover:scale-110"
+                      ? "bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md scale-105"
                       : isActive
                       ? "text-indigo-600"
                       : "text-slate-400 hover:text-indigo-400"
@@ -73,8 +86,6 @@ export default function BottomNav() {
                 {isActive && !isCreate && (
                   <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-indigo-500" />
                 )}
-
-                {/* Alerts badge removed since Alerts removed */}
               </button>
             );
           })}

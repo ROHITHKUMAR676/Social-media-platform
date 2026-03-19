@@ -1,8 +1,10 @@
-const express = require('express');
+import express from "express";
+import { getProfile } from "../controllers/userController.js";
+import { protect } from "../middleware/authMiddleware.js";
+
 const router = express.Router();
-const auth = require('../middleware/authMiddleware');
-const { getProfile } = require('../controllers/userController');
 
-router.get('/profile', auth, getProfile);
+// 👤 Get current user profile
+router.get("/profile", protect, getProfile);
 
-module.exports = router;
+export default router;

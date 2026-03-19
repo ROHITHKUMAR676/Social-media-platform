@@ -1,9 +1,13 @@
-const express = require('express');
+import express from "express";
+import { createPost, getPosts } from "../controllers/postController.js";
+import { protect } from "../middleware/authMiddleware.js";
+
 const router = express.Router();
-const auth = require('../middleware/authMiddleware');
-const { createPost, getPosts } = require('../controllers/postController');
 
-router.post('/', auth, createPost);
-router.get('/', getPosts);
+// 📝 Create Post (Protected)
+router.post("/", protect, createPost);
 
-module.exports = router;
+// 📄 Get All Posts (Public Feed)
+router.get("/", getPosts);
+
+export default router;

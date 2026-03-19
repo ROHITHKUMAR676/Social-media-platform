@@ -1,25 +1,38 @@
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { sendEmail } from "../config/mailer.js";
+import generateToken from "../utils/generateToken.js";
 
 // 🔐 TEMP OTP STORE (dev only)
 const otpStore = new Map();
 
 // 🔐 REGISTER → SEND OTP
-export const registerUser = async (req, res) => {
+export const registerUser = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
 
+    // ✅ Validation
+    if (!name || !email || !password) {
+      res.status(400);
+      throw new Error("All fields are required");
+    }
+
     const userExists = await User.findOne({ email });
-    if (userExists)
-      return res.status(400).json({ msg: "User already exists" });
+    if (userExists) {
+      res.status(400);
+      throw new Error("User already exists");
+    }
 
     // 🔥 Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
 
-    // 🔥 Store temporarily
-    otpStore.set(email, { name, password, otp });
+    // 🔥 Store with expiry (5 mins)
+    otpStore.set(email, {
+      name,
+      password,
+      otp,
+      expiresAt: Date.now() + 5 * 60 * 1000,
+    });
 
     // 🔥 Send email
     await sendEmail(
@@ -30,28 +43,49 @@ export const registerUser = async (req, res) => {
           <h2>Welcome to SkillSphere 🚀</h2>
           <p>Your OTP is:</p>
           <h1>${otp}</h1>
-          <p>This OTP will expire soon.</p>
+          <p>This OTP expires in 5 minutes.</p>
         </div>
       `
     );
 
-    res.json({ msg: "OTP sent to email" });
+    res.status(200).json({
+      success: true,
+      message: "OTP sent to email",
+    });
   } catch (err) {
-    res.status(500).json({ msg: err.message });
+    next(err);
   }
 };
 
 // 🔐 VERIFY OTP → CREATE USER
-export const verifyOtp = async (req, res) => {
+export const verifyOtp = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
 
+    if (!email || !otp) {
+      res.status(400);
+      throw new Error("Email and OTP are required");
+    }
+
     const stored = otpStore.get(email);
 
-    if (!stored || stored.otp != otp)
-      return res.status(400).json({ msg: "Invalid OTP" });
+    if (!stored) {
+      res.status(400);
+      throw new Error("OTP not found or expired");
+    }
 
-    // 🔥 Hash password now
+    if (stored.expiresAt < Date.now()) {
+      otpStore.delete(email);
+      res.status(400);
+      throw new Error("OTP expired");
+    }
+
+    if (stored.otp != otp) {
+      res.status(400);
+      throw new Error("Invalid OTP");
+    }
+
+    // 🔥 Hash password
     const hashedPassword = await bcrypt.hash(stored.password, 10);
 
     const user = await User.create({
@@ -60,16 +94,13 @@ export const verifyOtp = async (req, res) => {
       password: hashedPassword,
     });
 
-    // 🔥 Remove OTP after use
     otpStore.delete(email);
 
-    // 🔥 Generate token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    const token = generateToken(user._id);
 
-    res.json({
-      msg: "User verified & created",
+    res.status(201).json({
+      success: true,
+      message: "User verified & created",
       token,
       user: {
         id: user._id,
@@ -78,29 +109,39 @@ export const verifyOtp = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ msg: err.message });
+    next(err);
   }
 };
 
 // 🔐 LOGIN
-export const loginUser = async (req, res) => {
+export const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      res.status(400);
+      throw new Error("Email and password are required");
+    }
+
     const user = await User.findOne({ email });
-    if (!user)
-      return res.status(400).json({ msg: "Invalid credentials" });
+
+    if (!user) {
+      res.status(400);
+      throw new Error("Invalid credentials");
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return res.status(400).json({ msg: "Invalid credentials" });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    if (!isMatch) {
+      res.status(400);
+      throw new Error("Invalid credentials");
+    }
 
-    res.json({
-      msg: "Login success",
+    const token = generateToken(user._id);
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
       token,
       user: {
         id: user._id,
@@ -109,6 +150,6 @@ export const loginUser = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ msg: err.message });
+    next(err);
   }
 };

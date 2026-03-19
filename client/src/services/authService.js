@@ -1,11 +1,48 @@
-import api from './api';
+import api from "./api";
 
-export const login = async (credentials) => {
-  const response = await api.post('/auth/login', credentials);
-  return response.data;
+// 🔐 Register (send OTP)
+export const register = async (userData) => {
+  try {
+    const response = await api.post("/auth/register", userData);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: "Registration failed" };
+  }
 };
 
-export const register = async (userData) => {
-  const response = await api.post('/auth/register', userData);
-  return response.data;
+// 🔐 Verify OTP (create user)
+export const verifyOtp = async (data) => {
+  try {
+    const response = await api.post("/auth/verify-otp", data);
+
+    // ✅ Store token after successful verification
+    if (response.data.token) {
+      localStorage.setItem("token", response.data.token);
+    }
+
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: "OTP verification failed" };
+  }
+};
+
+// 🔐 Login
+export const login = async (credentials) => {
+  try {
+    const response = await api.post("/auth/login", credentials);
+
+    // ✅ Store token
+    if (response.data.token) {
+      localStorage.setItem("token", response.data.token);
+    }
+
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: "Login failed" };
+  }
+};
+
+// 🔓 Logout
+export const logout = () => {
+  localStorage.removeItem("token");
 };

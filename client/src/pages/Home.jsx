@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext"; // ✅ ADD THIS
+
 import PostCard from "../components/post/PostCard";
 import CreatePost from "../components/post/CreatePost";
 import { FiTrendingUp, FiUsers, FiZap } from "react-icons/fi";
@@ -39,19 +41,6 @@ const INITIAL_POSTS = [
     likes: 89,
     comments: 7,
   },
-  {
-    id: 3,
-    avatar: "https://api.dicebear.com/7.x/notionists/svg?seed=sam",
-    username: "Sam Okafor",
-    handle: "sam_ml",
-    time: "1h ago",
-    content:
-      "Fine-tuned a small LLM on domain-specific data today. The specialization gains are wild.",
-    image:
-      "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=600&auto=format&fit=crop",
-    likes: 231,
-    comments: 42,
-  },
 ];
 
 const TRENDING = [
@@ -69,8 +58,10 @@ const SUGGESTIONS = [
 export default function Home() {
   const navigate = useNavigate();
 
+  const { user } = useAuth(); // ✅ REAL AUTH STATE
+  const isLoggedIn = !!user;  // ✅ true if user exists
+
   const [posts, setPosts] = useState(INITIAL_POSTS);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
 
   const requireLogin = () => {

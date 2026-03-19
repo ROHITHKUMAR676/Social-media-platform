@@ -1,15 +1,60 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
-const PostSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  content: { type: String, required: true },
-  image: { type: String },
-  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  comments: [{
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    text: { type: String, required: true },
-    date: { type: Date, default: Date.now }
-  }],
-}, { timestamps: true });
+const commentSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    text: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 300,
+    },
+  },
+  { timestamps: true }
+);
 
-module.exports = mongoose.model('Post', PostSchema);
+const postSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    content: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 1000,
+    },
+
+    image: {
+      type: String,
+      default: null,
+    },
+
+    likes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    comments: [commentSchema],
+
+    likesCount: {
+      type: Number,
+      default: 0,
+    },
+  },
+  { timestamps: true }
+);
+
+// 🔥 Index for faster feed loading
+postSchema.index({ createdAt: -1 });
+
+export default mongoose.model("Post", postSchema);
