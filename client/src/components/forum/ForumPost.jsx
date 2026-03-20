@@ -25,7 +25,7 @@ export default function ForumPost({ post }) {
 
       <div className="flex gap-3">
         <Link to={`/profile/${post.author.username}`} className="flex-shrink-0">
-          <<UserAvatar user={post.author} size="sm" />
+          <UserAvatar user={post.author} size="sm" />
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
