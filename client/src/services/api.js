@@ -1,36 +1,30 @@
-import axios from "axios";
+// Base API service — replace with real API calls
+import { sleep } from '../utils/helpers'
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
-});
-
-// 🔐 Request Interceptor (Attach Token)
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    return config;
+export const api = {
+  async get(endpoint) {
+    await sleep(300 + Math.random() * 200) // Simulate network latency
+    console.log(`[API] GET ${endpoint}`)
+    return { ok: true }
   },
-  (error) => Promise.reject(error)
-);
 
-// ⚠️ Response Interceptor (Handle Errors)
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // Unauthorized → logout
-    if (error.response?.status === 401) {
-      console.error("Unauthorized - logging out");
-      localStorage.removeItem("token");
-      window.location.href = "/login";
-    }
+  async post(endpoint, data) {
+    await sleep(400 + Math.random() * 300)
+    console.log(`[API] POST ${endpoint}`, data)
+    return { ok: true, data }
+  },
 
-    return Promise.reject(error);
-  }
-);
+  async put(endpoint, data) {
+    await sleep(300)
+    console.log(`[API] PUT ${endpoint}`, data)
+    return { ok: true, data }
+  },
 
-export default api;
+  async delete(endpoint) {
+    await sleep(200)
+    console.log(`[API] DELETE ${endpoint}`)
+    return { ok: true }
+  },
+}
+
+export default api

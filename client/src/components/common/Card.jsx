@@ -1,29 +1,18 @@
-import React from 'react';
+import React from 'react'
 
-const Card = ({
-  children,
-  className = '',
-  shadow = true,
-  hover = true,
-  padding = 'p-6',
-  border = true,
-  rounded = 'rounded-2xl'
-}) => {
-  const baseClasses = `
-    bg-white backdrop-blur-sm
-    ${border ? 'border border-gray-100' : ''}
-    ${shadow ? 'shadow-lg' : ''}
-    ${hover ? 'hover:shadow-2xl transition-all duration-300 hover:-translate-y-1' : ''}
-    ${rounded}
-    ${padding}
-    ${className}
-  `;
-
+export default function Card({ children, className = '', hover = false, onClick, padding = true }) {
   return (
-    <div className={baseClasses}>
+    <div
+      onClick={onClick}
+      className={`
+        bg-dark-card border border-dark-border rounded-2xl shadow-card
+        ${padding ? 'p-5' : ''}
+        ${hover ? 'card-hover' : ''}
+        ${onClick ? 'cursor-pointer' : ''}
+        ${className}
+      `}
+    >
       {children}
     </div>
-  );
-};
-
-export default Card;
+  )
+}

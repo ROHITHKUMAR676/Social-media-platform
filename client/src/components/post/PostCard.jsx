@@ -1,173 +1,234 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
-  FiHeart,
-  FiMessageCircle,
-  FiBookmark,
-  FiShare2,
-  FiMoreHorizontal,
-} from "react-icons/fi";
+  Heart, MessageCircle, Share2, Bookmark, MoreHorizontal,
+  Code, CheckCheck, Send
+} from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
+import { LoginPromptModal } from '../common/Modal'
+import { SkillTag } from '../common/Badge'
+import { formatRelativeTime, formatNumber } from '../../utils/helpers'
+import { MOCK_COMMENTS } from '@/data/mockData'
+import UserAvatar from '../common/UserAvatar'
+export default function PostCard({ post, onLike }) {
+  const { isAuthenticated, user } = useAuth()
+  const navigate = useNavigate()
+  const [showLogin, setShowLogin] = useState(false)
+  const [liked, setLiked] = useState(post.liked)
+  const [likeCount, setLikeCount] = useState(post.likes)
+  const [bookmarked, setBookmarked] = useState(post.bookmarked)
+  const [showComments, setShowComments] = useState(false)
+  const [comment, setComment] = useState('')
+  const [comments, setComments] = useState(MOCK_COMMENTS[post.id] || [])
 
-import { useAuth } from "../../context/AuthContext";
-import api from "../../services/api";
-
-export default function PostCard({ post, onDelete }) {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-
-  // 🔥 BACKEND DATA FIX
-  const {
-    _id,
-    content,
-    image,
-    createdAt,
-    user: postUser,
-    likes = [],
-    comments = [],
-  } = post;
-
-  const isLikedInitially = likes.includes(user?.id);
-
-  const [liked, setLiked] = useState(isLikedInitially);
-  const [likeCount, setLikeCount] = useState(likes.length);
-  const [saved, setSaved] = useState(false);
-  const [showComments, setShowComments] = useState(false);
-
-  // 🔥 OWNER CHECK
-  const isOwner = postUser?._id === user?.id;
-
-  // ❤️ REAL LIKE SYSTEM
-  const handleLike = async () => {
-    try {
-      // optimistic UI
-      setLiked((prev) => !prev);
-      setLikeCount((prev) => (liked ? prev - 1 : prev + 1));
-
-      await api.put(`/posts/${_id}/like`);
-    } catch (err) {
-      console.error("Like failed", err);
-
-      // rollback
-      setLiked((prev) => !prev);
-      setLikeCount((prev) => (liked ? prev + 1 : prev - 1));
+  const requireAuth = (action) => {
+    if (!isAuthenticated) {
+      setShowLogin(true)
+      return false
     }
-  };
+    return true
+  }
 
-  // 🗑 DELETE
-  const handleDelete = () => {
-    if (window.confirm("Delete this post?")) {
-      onDelete?.(_id);
+  const handleLike = () => {
+    if (!requireAuth()) return
+    setLiked(p => !p)
+    setLikeCount(p => liked ? p - 1 : p + 1)
+  }
+
+  const handleBookmark = () => {
+    if (!requireAuth()) return
+    setBookmarked(p => !p)
+  }
+
+  const handleComment = () => {
+    if (!requireAuth()) return
+    setShowComments(p => !p)
+  }
+
+  const handleSendComment = (e) => {
+    e.preventDefault()
+    if (!comment.trim()) return
+    const newComment = {
+      id: 'c' + Date.now(),
+      author: user,
+      content: comment,
+      likes: 0,
+      createdAt: new Date().toISOString(),
     }
-  };
+    setComments(p => [...p, newComment])
+    setComment('')
+  }
+
+  const handleShare = () => {
+    if (!requireAuth()) return
+    navigator.clipboard?.writeText(window.location.origin + '/post/' + post.id)
+  }
 
   return (
-    <article className="bg-white/80 backdrop-blur-sm rounded-2xl border shadow-sm hover:shadow-md transition overflow-hidden">
-
-      {/* HEADER */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3">
-
-        <div
-          className="flex items-center gap-3 cursor-pointer"
-          onClick={() => navigate(`/profile/${postUser?.name}`)}
-        >
-          <div className="w-10 h-10 rounded-xl overflow-hidden">
-            <img
-              src={postUser?.avatar}
-              alt="avatar"
-              className="w-full h-full object-cover"
-            />
+    <>
+      <article className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden hover:border-surface-700/60 transition-all duration-200 animate-fade-in">
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 pt-5 pb-3">
+          <div className="flex items-center gap-3">
+            <Link to={`/profile/${post.author.username}`} className="flex-shrink-0">
+              <UserAvatar user={post.author} size="md" />
+            </Link>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <Link
+                  to={`/profile/${post.author.username}`}
+                  className="font-semibold text-white text-sm hover:text-brand-400 transition-colors"
+                >
+                  {post.author.name}
+                </Link>
+                {post.author.verified && (
+                  <span className="text-brand-400">
+                    <CheckCheck className="w-3.5 h-3.5" />
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-surface-500">
+                {post.author.role && <>{post.author.role} · </>}
+                {formatRelativeTime(post.createdAt)}
+              </p>
+            </div>
           </div>
-
-          <div>
-            <span className="text-sm font-bold">
-              {postUser?.name}
-            </span>
-            <p className="text-xs text-slate-400">
-              @{postUser?.name}
-            </p>
-          </div>
-        </div>
-
-        {/* OWNER MENU */}
-        {isOwner && (
-          <button
-            onClick={handleDelete}
-            className="text-red-500 text-sm"
-          >
-            Delete
+          <button className="p-1.5 rounded-lg text-surface-600 hover:text-surface-300 hover:bg-dark-hover transition-all">
+            <MoreHorizontal className="w-4 h-4" />
           </button>
-        )}
-      </div>
-
-      {/* CONTENT */}
-      <div className="px-4 pb-3">
-        <p className="text-sm text-slate-700">{content}</p>
-      </div>
-
-      {/* IMAGE */}
-      {image && (
-        <div className="mx-4 mb-3 rounded-xl overflow-hidden">
-          <img src={image} className="w-full max-h-72 object-cover" />
         </div>
-      )}
 
-      <div className="mx-4 border-t" />
+        {/* Content */}
+        <div className="px-5 pb-3">
+          <p className="text-surface-200 text-sm leading-relaxed whitespace-pre-line">
+            {post.content}
+          </p>
+        </div>
 
-      {/* ACTIONS */}
-      <div className="flex items-center justify-between px-4 py-3">
+        {/* Code snippet */}
+        {post.codeSnippet && (
+          <div className="mx-5 mb-3 rounded-xl bg-dark-bg border border-dark-border overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-dark-border">
+              <Code className="w-3.5 h-3.5 text-brand-400" />
+              <span className="text-xs text-surface-500 font-mono">code</span>
+            </div>
+            <pre className="p-4 text-xs font-mono text-green-400 overflow-x-auto leading-relaxed scrollbar-hide">
+              {post.codeSnippet}
+            </pre>
+          </div>
+        )}
 
-        <div className="flex items-center gap-2">
+        {/* Tags */}
+        {post.tags?.length > 0 && (
+          <div className="px-5 pb-3 flex flex-wrap gap-1.5">
+            {post.tags.map(tag => (
+              <SkillTag key={tag} skill={`#${tag}`} />
+            ))}
+          </div>
+        )}
 
-          {/* LIKE */}
+        {/* Stats */}
+        <div className="px-5 pb-2 flex items-center gap-4 text-xs text-surface-600">
+          <span>{formatNumber(likeCount)} likes</span>
+          <span>{formatNumber(post.comments + comments.length - (MOCK_COMMENTS[post.id]?.length || 0))} comments</span>
+        </div>
+
+        {/* Actions */}
+        <div className="px-3 py-2 border-t border-dark-border flex items-center gap-1">
           <button
             onClick={handleLike}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm ${
-              liked
-                ? "text-rose-500 bg-rose-50"
-                : "text-slate-500 hover:bg-rose-50"
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-all duration-150
+              ${liked
+                ? 'text-red-400 bg-red-500/10 hover:bg-red-500/15'
+                : 'text-surface-500 hover:text-surface-300 hover:bg-dark-hover'
+              }`}
           >
-            <FiHeart className={liked ? "fill-rose-500" : ""} />
-            {likeCount}
+            <Heart className={`w-4 h-4 ${liked ? 'fill-current' : ''}`} />
+            <span className="hidden sm:inline">Like</span>
           </button>
 
-          {/* COMMENTS */}
           <button
-            onClick={() => setShowComments((p) => !p)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm text-slate-500 hover:bg-indigo-50"
+            onClick={handleComment}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-all duration-150
+              ${showComments
+                ? 'text-brand-400 bg-brand-600/10'
+                : 'text-surface-500 hover:text-surface-300 hover:bg-dark-hover'
+              }`}
           >
-            <FiMessageCircle />
-            {comments.length}
+            <MessageCircle className="w-4 h-4" />
+            <span className="hidden sm:inline">Comment</span>
           </button>
 
-          {/* SHARE */}
           <button
-            onClick={() => {
-              navigator.clipboard.writeText(window.location.href);
-            }}
-            className="px-3 py-1.5 text-slate-500 hover:bg-sky-50 rounded-xl"
+            onClick={handleShare}
+            className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium text-surface-500 hover:text-surface-300 hover:bg-dark-hover transition-all duration-150"
           >
-            <FiShare2 />
+            <Share2 className="w-4 h-4" />
+            <span className="hidden sm:inline">Share</span>
+          </button>
+
+          <button
+            onClick={handleBookmark}
+            className={`p-2 rounded-xl text-sm font-medium transition-all duration-150
+              ${bookmarked
+                ? 'text-yellow-400 bg-yellow-500/10'
+                : 'text-surface-500 hover:text-surface-300 hover:bg-dark-hover'
+              }`}
+          >
+            <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-current' : ''}`} />
           </button>
         </div>
 
-        {/* SAVE */}
-        <button
-          onClick={() => setSaved((p) => !p)}
-          className={`p-2 rounded-xl ${
-            saved ? "text-violet-600 bg-violet-50" : "text-slate-400"
-          }`}
-        >
-          <FiBookmark className={saved ? "fill-violet-500" : ""} />
-        </button>
-      </div>
+        {/* Comments section */}
+        {showComments && (
+          <div className="border-t border-dark-border animate-slide-up">
+            {comments.length > 0 && (
+              <div className="px-5 py-3 space-y-4 max-h-72 overflow-y-auto">
+                {comments.map(c => (
+                  <div key={c.id} className="flex gap-3">
+                    <UserAvatar user={c.author} size="sm" />
+                    <div className="flex-1 bg-dark-bg rounded-xl p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold text-white">{c.author.name}</span>
+                        <span className="text-xs text-surface-600">{formatRelativeTime(c.createdAt)}</span>
+                      </div>
+                      <p className="text-sm text-surface-300">{c.content}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-      {/* COMMENTS UI (keep simple) */}
-      {showComments && (
-        <div className="px-4 pb-4 text-sm text-slate-500">
-          Comments coming soon 💬
-        </div>
-      )}
-    </article>
-  );
+            {isAuthenticated && (
+              <form onSubmit={handleSendComment} className="flex items-center gap-3 px-5 py-3 border-t border-dark-border">
+                <UserAvatar user={user} size="sm" />
+                <div className="flex-1 flex items-center gap-2">
+                  <input
+                    value={comment}
+                    onChange={e => setComment(e.target.value)}
+                    placeholder="Write a comment..."
+                    className="flex-1 bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-sm text-white placeholder-surface-600 focus:outline-none focus:ring-1 focus:ring-brand-500/50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!comment.trim()}
+                    className="p-2 rounded-xl bg-brand-600 text-white disabled:opacity-40 hover:bg-brand-500 transition-all"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+      </article>
+
+      <LoginPromptModal
+        isOpen={showLogin}
+        onClose={() => setShowLogin(false)}
+        onLogin={() => { setShowLogin(false); navigate('/login') }}
+        onRegister={() => { setShowLogin(false); navigate('/register') }}
+      />
+    </>
+  )
 }

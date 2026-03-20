@@ -1,118 +1,95 @@
-import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import React from 'react'
+import { Routes, Route } from 'react-router-dom'
+import ProtectedRoute from './ProtectedRoute'
+import { useAuth } from '../context/AuthContext'
 
-import Navbar from "../components/layout/Navbar";
-import BottomNav from "../components/layout/BottomNav";
-
-import Home from "../pages/Home";
-import Login from "../pages/Login";
-import Register from "../pages/Register";
-import Profile from "../pages/Profile";
-import NotFound from "../pages/NotFound";
-import CreateProfile from "../pages/CreateProfile";
-
-// 🧱 Layout Wrapper (UPDATED FOR DESKTOP)
-const AppShell = ({ children }) => (
-  <div className="min-h-screen bg-slate-50">
-
-    {/* 🔝 Navbar (top for all) */}
-    <Navbar />
-
-    {/* 🔥 MAIN LAYOUT */}
-    <div className="flex max-w-6xl mx-auto">
-
-      {/* 📌 LEFT SIDEBAR (desktop only for future use) */}
-      <div className="hidden md:block w-1/4 p-4">
-        {/* Future sidebar */}
-      </div>
-
-      {/* 🧠 MAIN CONTENT */}
-      <div className="flex-1 p-3 md:p-6">
-        {children}
-      </div>
-
-      {/* 📌 RIGHT SIDEBAR (desktop only) */}
-      <div className="hidden md:block w-1/4 p-4">
-        {/* Future suggestions */}
-      </div>
-    </div>
-
-    {/* 📱 Bottom Nav (mobile only) */}
-    <div className="md:hidden">
-      <BottomNav />
-    </div>
-  </div>
-);
-
-// 🔐 Protected Route
-const PrivateRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-
-  if (loading) return null;
-
-  return user ? children : <Navigate to="/login" replace />;
-};
-
-// 🚫 Public Route
-const PublicRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-
-  if (loading) return null;
-
-  return !user ? children : <Navigate to="/" replace />;
-};
+// Pages
+import Home          from '../pages/Home'
+import Login         from '../pages/Login'
+import Register      from '../pages/Register'
+import VerifyOtp     from '../pages/VerifyOtp'
+import CreateProfile from '../pages/CreateProfile'
+import Profile       from '../pages/Profile'
+import Messages      from '../pages/Messages'
+import Forums        from '../pages/Forums'
+import ForumDetail   from '../pages/ForumDetail'
+import Notifications from '../pages/Notifications'
+import Followers     from '../pages/Followers'
+import Following     from '../pages/Following'
+import NotFound      from '../pages/NotFound'
+import { FullPageLoader } from '../components/common/Loader'
 
 export default function AppRoutes() {
+  const { isLoading } = useAuth()
+  if (isLoading) return <FullPageLoader />
+
   return (
     <Routes>
+      {/* ── Fully public ───────────────────────────────────────── */}
+      <Route path="/"              element={<Home />} />
+      <Route path="/login"         element={<Login />} />
+      <Route path="/register"      element={<Register />} />
+      <Route path="/forums"        element={<Forums />} />
+      <Route path="/forums/:slug"  element={<ForumDetail />} />
+      <Route path="/profile/:username" element={<Profile />} />
 
-      {/* 🚫 AUTH PAGES */}
-      <Route path="/login" element={
-        <PublicRoute>
-          <Login />
-        </PublicRoute>
-      } />
+      {/* ── Auth required, OTP NOT yet needed ─────────────────── */}
+      {/* Verify OTP: user is logged in but hasn't verified yet    */}
+      <Route
+        path="/verify-otp"
+        element={
+          <ProtectedRoute requireOtp={false} requireProfile={false}>
+            <VerifyOtp />
+          </ProtectedRoute>
+        }
+      />
 
-      <Route path="/register" element={
-        <PublicRoute>
-          <Register />
-        </PublicRoute>
-      } />
+      {/* ── Auth + OTP verified, profile NOT yet needed ───────── */}
+      <Route
+        path="/create-profile"
+        element={
+          <ProtectedRoute requireOtp={true} requireProfile={false}>
+            <CreateProfile />
+          </ProtectedRoute>
+        }
+      />
 
-      {/* 🌍 PUBLIC HOME (FIXED 🔥) */}
-      <Route path="/" element={
-        <AppShell>
-          <Home />
-        </AppShell>
-      } />
+      {/* ── Auth + OTP + profile all required ─────────────────── */}
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute>
+            <Messages />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute>
+            <Notifications />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/followers"
+        element={
+          <ProtectedRoute>
+            <Followers />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/following"
+        element={
+          <ProtectedRoute>
+            <Following />
+          </ProtectedRoute>
+        }
+      />
 
-      <Route path="/home" element={<Navigate to="/" replace />} />
-
-      {/* 🔐 PROTECTED */}
-      <Route path="/profile" element={
-        <PrivateRoute>
-          <AppShell>
-            <Profile />
-          </AppShell>
-        </PrivateRoute>
-      } />
-
-      <Route path="/profile/:username" element={
-        <PrivateRoute>
-          <AppShell>
-            <Profile />
-          </AppShell>
-        </PrivateRoute>
-      } />
-
-      <Route path="/create-profile" element={
-        <PrivateRoute>
-          <CreateProfile />
-        </PrivateRoute>
-      } />
-
-      {/* ❌ NOT FOUND */}
+      {/* ── 404 ───────────────────────────────────────────────── */}
       <Route path="*" element={<NotFound />} />
     </Routes>
-  );
+  )
 }

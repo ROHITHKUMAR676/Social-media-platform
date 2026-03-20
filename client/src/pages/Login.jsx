@@ -1,126 +1,154 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  FiMail,
-  FiLock,
-  FiEye,
-  FiEyeOff,
-  FiZap,
-} from "react-icons/fi";
-
-import Input from "../components/common/Input";
-import Button from "../components/common/Button";
-import { useAuth } from "../context/AuthContext";
-import { login as loginUser } from "../services/authService";
+import React, { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Mail, Lock, Eye, EyeOff, Zap, ArrowRight } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import Input from '../components/common/Input'
+import Button from '../components/common/Button'
 
 export default function Login() {
-  const navigate = useNavigate();
-  const { login } = useAuth();
-
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [form, setForm] = useState({ email: "", password: "" });
-
-  const handleChange = (e) =>
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const [form, setForm] = useState({ email: '', password: '' })
+  const [showPass, setShowPass] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    try {
-      const data = await loginUser(form);
-      login(data.user, data.token);
-      navigate("/");
-    } catch (err) {
-      setError(err.message || "Login failed");
-    } finally {
-      setLoading(false);
+    e.preventDefault()
+    if (!form.email || !form.password) {
+      setError('Please fill all fields.')
+      return
     }
-  };
+    setLoading(true)
+    setError('')
+    const result = await login(form.email, form.password)
+    setLoading(false)
+    if (result.success) {
+      navigate('/create-profile')
+    } else {
+      setError(result.error || 'Login failed.')
+    }
+  }
+
+  const handleDemo = async () => {
+    setLoading(true)
+    const result = await login('demo@devconnect.io', 'demo1234')
+    setLoading(false)
+    if (result.success) navigate('/create-profile')
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-50 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-
-      <div className="w-full max-w-md sm:max-w-lg lg:max-w-xl">
-
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl border border-slate-100 shadow-xl px-6 sm:px-8 lg:px-10 py-8 sm:py-10 lg:py-12 transition-all">
-
-          {/* 🔥 BRAND */}
-          <div className="flex flex-col items-center gap-2 mb-6 sm:mb-8">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md">
-              <FiZap className="text-white text-xl sm:text-2xl" />
+    <div className="min-h-screen bg-dark-bg flex">
+      {/* Left panel */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-950 via-dark-card to-dark-bg relative overflow-hidden flex-col justify-between p-12">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-20 left-20 w-64 h-64 rounded-full bg-brand-500 blur-3xl" />
+          <div className="absolute bottom-20 right-20 w-48 h-48 rounded-full bg-brand-400 blur-3xl" />
+        </div>
+        <div className="relative">
+          <div className="flex items-center gap-2.5 mb-12">
+            <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center shadow-brand">
+              <Zap className="w-5 h-5 text-white" fill="currentColor" />
             </div>
+            <span className="font-display font-bold text-white text-xl">DevConnect</span>
+          </div>
+          <h2 className="font-display font-bold text-white text-4xl leading-tight mb-4">
+            Where great<br />
+            <span className="gradient-text">developers</span><br />
+            connect.
+          </h2>
+          <p className="text-surface-400 text-base leading-relaxed max-w-sm">
+            Join 50,000+ developers sharing knowledge, building careers, and shipping together.
+          </p>
+        </div>
+        {/* Testimonial */}
+        <div className="relative bg-dark-card/60 backdrop-blur-sm border border-dark-border rounded-2xl p-5">
+          <p className="text-surface-300 text-sm leading-relaxed mb-3">
+            "DevConnect is where I found my co-founder, my team, and my first 3 enterprise customers. It's the LinkedIn we actually wanted."
+          </p>
+          <div className="flex items-center gap-2.5">
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=testimonial&backgroundColor=c0aede" className="w-8 h-8 rounded-full" alt="" />
+            <div>
+              <p className="text-sm font-semibold text-white">Aisha Patel</p>
+              <p className="text-xs text-surface-500">CTO, Buildfast</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-            <h1 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-800">
-              Dev<span className="text-indigo-600">Connect</span>
-            </h1>
-
-            <p className="text-xs sm:text-sm text-slate-500">
-              Welcome back 👋
-            </p>
+      {/* Right panel / Form */}
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-sm animate-fade-in">
+          {/* Mobile logo */}
+          <div className="flex items-center gap-2 mb-8 lg:hidden">
+            <div className="w-8 h-8 rounded-xl bg-brand-600 flex items-center justify-center">
+              <Zap className="w-4 h-4 text-white" fill="currentColor" />
+            </div>
+            <span className="font-display font-bold text-white text-lg">DevConnect</span>
           </div>
 
-          {/* 🔥 ERROR */}
+          <h1 className="font-display font-bold text-white text-2xl mb-1">Welcome back</h1>
+          <p className="text-surface-500 text-sm mb-8">Sign in to your account</p>
+
           {error && (
-            <div className="mb-4 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg text-center border border-red-100">
+            <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               {error}
             </div>
           )}
 
-          {/* 🔥 FORM */}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:gap-5">
-
+          <form onSubmit={handleSubmit} className="space-y-4">
             <Input
-              name="email"
-              type="email"
               label="Email"
-              icon={FiMail}
+              type="email"
+              icon={Mail}
               value={form.email}
-              onChange={handleChange}
-              required
+              onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+              placeholder="you@example.com"
+              autoComplete="email"
             />
-
-            <div className="relative">
-              <Input
-                name="password"
-                type={showPassword ? "text" : "password"}
-                label="Password"
-                icon={FiLock}
-                value={form.password}
-                onChange={handleChange}
-                required
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[38px] text-slate-500 hover:text-indigo-600 transition"
-              >
-                {showPassword ? <FiEyeOff /> : <FiEye />}
+            <Input
+              label="Password"
+              type={showPass ? 'text' : 'password'}
+              icon={Lock}
+              iconRight={showPass ? EyeOff : Eye}
+              value={form.password}
+              onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+              placeholder="••••••••"
+              autoComplete="current-password"
+            />
+            <div className="flex justify-end">
+              <button type="button" className="text-xs text-brand-400 hover:text-brand-300 transition-colors">
+                Forgot password?
               </button>
             </div>
-
-            <Button type="submit" loading={loading}>
-              {loading ? "Signing in..." : "Sign In"}
+            <Button type="submit" loading={loading} className="w-full justify-center py-3">
+              Sign in <ArrowRight className="w-4 h-4" />
             </Button>
           </form>
 
-          {/* 🔥 FOOTER */}
-          <p className="text-center text-xs sm:text-sm mt-6 text-slate-600">
-            No account?{" "}
-            <button
-              onClick={() => navigate("/register")}
-              className="text-indigo-600 font-medium hover:underline"
-            >
-              Create one →
-            </button>
-          </p>
+          <div className="my-5 flex items-center gap-3">
+            <div className="flex-1 h-px bg-dark-border" />
+            <span className="text-xs text-surface-600">or</span>
+            <div className="flex-1 h-px bg-dark-border" />
+          </div>
 
+          <Button
+            variant="secondary"
+            onClick={handleDemo}
+            loading={loading}
+            className="w-full justify-center py-3"
+          >
+            ⚡ Continue with demo account
+          </Button>
+
+          <p className="text-center text-sm text-surface-500 mt-6">
+            No account?{' '}
+            <Link to="/register" className="text-brand-400 hover:text-brand-300 font-medium transition-colors">
+              Create one free
+            </Link>
+          </p>
         </div>
       </div>
     </div>
-  );
+  )
 }

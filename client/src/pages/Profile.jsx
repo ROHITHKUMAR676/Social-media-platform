@@ -1,214 +1,239 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
-  FiGrid,
-  FiBookmark,
-  FiEdit2,
-  FiLogOut,
-  FiCamera,
-} from "react-icons/fi";
-
-import { useAuth } from "../context/AuthContext";
-import PostCard from "../components/post/PostCard";
-import api from "../services/api";
-
-const TABS = ["Posts", "Saved"];
+  MapPin, Link as LinkIcon, Calendar, Users, FileText,
+  MessageSquare, UserPlus, UserCheck, Edit, CheckCheck,
+  Briefcase, Code2
+} from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import Layout from '../components/layout/Layout'
+import PostCard from '../components/post/PostCard'
+import PostSkeleton from '../components/post/PostSkeleton'
+import { SkillTag } from '../components/common/Badge'
+import { formatNumber } from '../utils/helpers'
+import { MOCK_USERS, MOCK_POSTS } from '@/data/mockData'
+import { format } from 'date-fns'
+import UserAvatar from '../components/common/UserAvatar'
 
 export default function Profile() {
-  const { user, setUser, logout } = useAuth();
-  const { username } = useParams();
-  const navigate = useNavigate();
+  const { username } = useParams()
+  const { user: currentUser, isAuthenticated } = useAuth()
+  const navigate = useNavigate()
+  const [profileUser, setProfileUser] = useState(null)
+  const [userPosts, setUserPosts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [following, setFollowing] = useState(false)
+  const [tab, setTab] = useState('posts')
 
-  const [profileUser, setProfileUser] = useState(null);
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const isOwnProfile = currentUser?.username === username
 
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followersCount, setFollowersCount] = useState(0);
-
-  const isOwnProfile = !username || username === user?.name;
-
-  // 🔥 FETCH PROFILE USER
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        if (isOwnProfile) {
-          setProfileUser(user);
-          setFollowersCount(user.followers?.length || 0);
-          return;
-        }
-
-        const res = await api.get(`/users/profile/${username}`);
-        const data = res.data.user;
-
-        setProfileUser(data);
-        setFollowersCount(data.followers?.length || 0);
-
-        // 🔥 check following
-        setIsFollowing(
-          data.followers?.includes(user.id)
-        );
-      } catch (err) {
-        console.error("Profile fetch failed", err);
+    setLoading(true)
+    setTimeout(() => {
+      if (isOwnProfile) {
+        setProfileUser(currentUser)
+        setUserPosts(MOCK_POSTS.filter(p => p.author.id === 'u1').slice(0, 3))
+      } else {
+        const found = MOCK_USERS.find(u => u.username === username)
+        setProfileUser(found || null)
+        setUserPosts(found ? MOCK_POSTS.filter(p => p.author.id === found.id) : [])
       }
-    };
+      setLoading(false)
+    }, 600)
+  }, [username, isOwnProfile, currentUser])
 
-    fetchProfile();
-  }, [username, user]);
-
-  // 🔥 FETCH POSTS
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const res = await api.get("/posts");
-        const allPosts = res.data.posts || [];
-
-        const filtered = allPosts.filter(
-          (p) => p.user?._id === profileUser?._id
-        );
-
-        setPosts(filtered);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (profileUser?._id) {
-      fetchPosts();
-    }
-  }, [profileUser]);
-
-  if (!user || !profileUser) {
+  if (loading) {
     return (
-      <div className="text-center mt-20 text-slate-500">
-        Loading profile...
-      </div>
-    );
+      <Layout>
+        <div className="space-y-4">
+          <div className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden animate-pulse">
+            <div className="h-32 bg-dark-hover" />
+            <div className="p-5 space-y-3">
+              <div className="w-20 h-20 rounded-full bg-dark-hover -mt-12 border-4 border-dark-card" />
+              <div className="h-5 w-40 bg-dark-hover rounded" />
+              <div className="h-4 w-64 bg-dark-hover rounded" />
+            </div>
+          </div>
+          {[1,2].map(i => <PostSkeleton key={i} />)}
+        </div>
+      </Layout>
+    )
   }
 
-  const letter = profileUser.name?.charAt(0).toUpperCase();
-
-  // 🔥 FOLLOW
-  const handleFollow = async () => {
-    try {
-      const res = await api.put(`/users/follow/${profileUser._id}`);
-
-      setIsFollowing(res.data.isFollowing);
-
-      setFollowersCount((prev) =>
-        res.data.isFollowing ? prev + 1 : prev - 1
-      );
-    } catch (err) {
-      console.error("Follow failed", err);
-    }
-  };
+  if (!profileUser) {
+    return (
+      <Layout>
+        <div className="text-center py-20">
+          <p className="text-surface-500">User not found.</p>
+        </div>
+      </Layout>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-indigo-50/20 to-violet-50/30 pb-24">
+    <Layout>
+      <div className="space-y-4">
+        {/* Profile Card */}
+        <div className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden">
+          {/* Cover */}
+          <div className="h-28 bg-gradient-to-br from-brand-900 via-brand-950 to-dark-bg relative">
+            <div className="absolute inset-0 opacity-30"
+              style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, rgba(97,114,245,0.4) 0%, transparent 60%)' }}
+            />
+          </div>
 
-      {/* COVER */}
-      <div className="relative h-40 md:h-56 w-full">
-        <img
-          src={
-            profileUser.cover ||
-            "https://images.unsplash.com/photo-1579547621113-e4bb2a19bdd6?w=800"
-          }
-          className="w-full h-full object-cover"
-        />
-      </div>
+          <div className="px-5 pb-5">
+            <div className="flex items-end justify-between -mt-10 mb-4">
+              <div className="relative">
+                <UserAvatar
+                  user={profileUser}
+                  size="xl"
+                  shape="rounded"
+                  className="border-4 border-dark-card"
+                />
+                {profileUser.isOnline && (
+                  <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-400 border-2 border-dark-card" />
+                )}
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                {isOwnProfile ? (
+                  <Link to="/create-profile" className="btn-secondary text-xs px-3 py-1.5 gap-1.5">
+                    <Edit className="w-3.5 h-3.5" /> Edit Profile
+                  </Link>
+                ) : isAuthenticated ? (
+                  <>
+                    <button
+                      onClick={() => navigate('/messages')}
+                      className="btn-secondary text-xs px-3 py-1.5 gap-1.5"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" /> Message
+                    </button>
+                    <button
+                      onClick={() => setFollowing(p => !p)}
+                      className={following ? 'btn-secondary text-xs px-3 py-1.5 gap-1.5' : 'btn-primary text-xs px-3 py-1.5 gap-1.5'}
+                    >
+                      {following ? (
+                        <><UserCheck className="w-3.5 h-3.5" /> Following</>
+                      ) : (
+                        <><UserPlus className="w-3.5 h-3.5" /> Follow</>
+                      )}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            </div>
 
-      <div className="max-w-3xl mx-auto px-4">
-
-        <div className="bg-white rounded-2xl shadow-md px-5 py-6 -mt-12 relative z-10">
-
-          <div className="flex justify-between items-start">
-
-            {/* AVATAR */}
-            <div className="w-20 h-20 rounded-2xl overflow-hidden border-4 border-white">
-              {profileUser.avatar ? (
-                <img src={profileUser.avatar} className="w-full h-full object-cover" />
-              ) : (
-                letter
+            {/* Name & role */}
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-0.5">
+                <h1 className="font-display font-bold text-white text-xl">{profileUser.name}</h1>
+                {profileUser.verified && <CheckCheck className="w-4 h-4 text-brand-400" />}
+              </div>
+              <p className="text-surface-500 text-sm">@{profileUser.username}</p>
+              {profileUser.role && (
+                <p className="text-surface-300 text-sm mt-1 flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-surface-600" />
+                  {profileUser.role}{profileUser.company && ` @ ${profileUser.company}`}
+                </p>
               )}
             </div>
 
-            {/* ACTIONS */}
-            <div className="flex gap-2">
-              {isOwnProfile ? (
-                <>
-                  <button
-                    onClick={() => navigate("/create-profile")}
-                    className="px-3 py-1.5 rounded-xl bg-indigo-500 text-white text-sm"
-                  >
-                    Edit
-                  </button>
+            {/* Bio */}
+            {profileUser.bio && (
+              <p className="text-surface-300 text-sm leading-relaxed mb-3">{profileUser.bio}</p>
+            )}
 
-                  <button
-                    onClick={logout}
-                    className="px-3 py-1.5 rounded-xl bg-red-100 text-red-500 text-sm"
-                  >
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={handleFollow}
-                  className={`px-4 py-2 rounded-xl text-sm ${
-                    isFollowing
-                      ? "bg-slate-200"
-                      : "bg-indigo-500 text-white"
-                  }`}
+            {/* Meta */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-4 text-xs text-surface-500">
+              {profileUser.location && (
+                <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{profileUser.location}</span>
+              )}
+              {profileUser.website && (
+                <a href={profileUser.website} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-brand-400 hover:text-brand-300 transition-colors"
                 >
-                  {isFollowing ? "Following" : "Follow"}
-                </button>
+                  <LinkIcon className="w-3.5 h-3.5" />
+                  {profileUser.website.replace(/https?:\/\//, '')}
+                </a>
+              )}
+              {profileUser.joined && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Joined {format(new Date(profileUser.joined), 'MMM yyyy')}
+                </span>
               )}
             </div>
-          </div>
 
-          {/* INFO */}
-          <div className="mt-3">
-            <h1 className="text-xl font-bold">{profileUser.name}</h1>
-            <p className="text-sm text-slate-500">@{profileUser.name}</p>
-            <p className="text-sm mt-2">{profileUser.bio}</p>
-          </div>
+            {/* Stats */}
+            <div className="flex items-center gap-6 mb-4 pb-4 border-b border-dark-border">
+              <Link to="/followers" className="text-center group">
+                <p className="font-display font-bold text-white text-lg group-hover:text-brand-400 transition-colors">
+                  {formatNumber(profileUser.followers + (following ? 1 : 0))}
+                </p>
+                <p className="text-xs text-surface-600">Followers</p>
+              </Link>
+              <Link to="/following" className="text-center group">
+                <p className="font-display font-bold text-white text-lg group-hover:text-brand-400 transition-colors">
+                  {formatNumber(profileUser.following)}
+                </p>
+                <p className="text-xs text-surface-600">Following</p>
+              </Link>
+              <div className="text-center">
+                <p className="font-display font-bold text-white text-lg">{userPosts.length || profileUser.posts}</p>
+                <p className="text-xs text-surface-600">Posts</p>
+              </div>
+            </div>
 
-          {/* STATS */}
-          <div className="flex gap-6 mt-4 text-center">
-            <div>
-              <p className="font-bold">{posts.length}</p>
-              <p className="text-xs text-slate-400">Posts</p>
-            </div>
-            <div>
-              <p className="font-bold">{followersCount}</p>
-              <p className="text-xs text-slate-400">Followers</p>
-            </div>
-            <div>
-              <p className="font-bold">{profileUser.following?.length || 0}</p>
-              <p className="text-xs text-slate-400">Following</p>
-            </div>
+            {/* Skills */}
+            {profileUser.skills?.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Code2 className="w-4 h-4 text-surface-600" />
+                  <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider">Skills</p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {profileUser.skills.map(skill => <SkillTag key={skill} skill={skill} />)}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* POSTS */}
-        <div className="flex flex-col gap-3 mt-4">
-          {loading ? (
-            <div className="text-center text-slate-400 py-10">
-              Loading posts...
-            </div>
-          ) : posts.length === 0 ? (
-            <div className="text-center text-slate-400 py-10">
-              No posts yet 🚀
-            </div>
-          ) : (
-            posts.map((post) => (
-              <PostCard key={post._id} post={post} />
-            ))
-          )}
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 bg-dark-card border border-dark-border rounded-2xl">
+          {['posts', 'activity'].map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all capitalize ${
+                tab === t ? 'bg-brand-600 text-white' : 'text-surface-500 hover:text-white hover:bg-dark-hover'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
         </div>
 
+        {/* Posts */}
+        {tab === 'posts' && (
+          <div className="space-y-4">
+            {userPosts.length === 0 ? (
+              <div className="bg-dark-card border border-dark-border rounded-2xl p-12 text-center">
+                <FileText className="w-10 h-10 text-surface-700 mx-auto mb-3" />
+                <p className="text-surface-500">No posts yet.</p>
+              </div>
+            ) : (
+              userPosts.map(post => <PostCard key={post.id} post={post} />)
+            )}
+          </div>
+        )}
+
+        {tab === 'activity' && (
+          <div className="bg-dark-card border border-dark-border rounded-2xl p-8 text-center">
+            <p className="text-surface-500 text-sm">Activity feed coming soon.</p>
+          </div>
+        )}
       </div>
-    </div>
-  );
+    </Layout>
+  )
 }
