@@ -3,7 +3,7 @@ import { Bell, Heart, MessageCircle, UserPlus, CheckCircle2, CheckCheck } from '
 import Layout from '../components/layout/Layout'
 import { useNotifications } from '../context/NotificationContext'
 import { formatRelativeTime } from '../utils/helpers'
-import UserAvatar from '../common/UserAvatar'
+import UserAvatar from "@/components/common/UserAvatar";
 const ICON_MAP = {
   like: { icon: Heart, color: 'text-red-400 bg-red-500/10 border-red-500/20' },
   comment: { icon: MessageCircle, color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },

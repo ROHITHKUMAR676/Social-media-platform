@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { LoginPromptModal } from '../common/Modal'
 import { SkillTag } from '../common/Badge'
+import { postService } from '@/services/postService'
 import { formatRelativeTime, formatNumber } from '../../utils/helpers'
 import { MOCK_COMMENTS } from '@/data/mockData'
 import UserAvatar from '../common/UserAvatar'
@@ -29,11 +30,29 @@ export default function PostCard({ post, onLike }) {
     return true
   }
 
-  const handleLike = () => {
-    if (!requireAuth()) return
-    setLiked(p => !p)
-    setLikeCount(p => liked ? p - 1 : p + 1)
+  const handleLike = async () => {
+  if (!requireAuth()) return
+
+  const prevLiked = liked
+
+  // 🔥 optimistic UI (instant feel)
+  setLiked(!prevLiked)
+  setLikeCount(prevLiked ? likeCount - 1 : likeCount + 1)
+
+  try {
+    const res = await postService.toggleLike(post.id)
+
+    // 🔥 sync with backend
+    setLiked(res.liked)
+    setLikeCount(res.likes)
+  } catch (err) {
+    console.error(err)
+
+    // 🔁 revert if error
+    setLiked(prevLiked)
+    setLikeCount(prevLiked ? likeCount : likeCount - 1)
   }
+}
 
   const handleBookmark = () => {
     if (!requireAuth()) return

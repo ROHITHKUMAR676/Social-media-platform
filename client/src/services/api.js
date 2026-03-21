@@ -1,30 +1,16 @@
-// Base API service — replace with real API calls
-import { sleep } from '../utils/helpers'
+import axios from 'axios'
 
-export const api = {
-  async get(endpoint) {
-    await sleep(300 + Math.random() * 200) // Simulate network latency
-    console.log(`[API] GET ${endpoint}`)
-    return { ok: true }
-  },
+const api = axios.create({
+  baseURL: 'http://localhost:5000/api',
+})
 
-  async post(endpoint, data) {
-    await sleep(400 + Math.random() * 300)
-    console.log(`[API] POST ${endpoint}`, data)
-    return { ok: true, data }
-  },
-
-  async put(endpoint, data) {
-    await sleep(300)
-    console.log(`[API] PUT ${endpoint}`, data)
-    return { ok: true, data }
-  },
-
-  async delete(endpoint) {
-    await sleep(200)
-    console.log(`[API] DELETE ${endpoint}`)
-    return { ok: true }
-  },
-}
+// 🔐 Attach token automatically
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('dc_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
 
 export default api

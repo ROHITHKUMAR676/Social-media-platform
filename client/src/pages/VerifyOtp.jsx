@@ -288,13 +288,7 @@ export default function VerifyOtp() {
             )}
           </div>
 
-          {/* Demo hint */}
-          <div className="mt-8 px-4 py-3 rounded-xl bg-dark-card border border-dark-border">
-            <p className="text-xs text-surface-500 text-center">
-              <span className="text-surface-400 font-medium">Demo mode:</span>{' '}
-              enter any 6 digits to continue
-            </p>
-          </div>
+          
         </div>
       </div>
     </div>

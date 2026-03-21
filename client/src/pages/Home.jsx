@@ -6,7 +6,8 @@ import PostCard from '../components/post/PostCard'
 import CreatePost from '../components/post/CreatePost'
 import PostSkeleton from '../components/post/PostSkeleton'
 import { useAuth } from '../context/AuthContext'
-import { MOCK_POSTS } from '@/data/mockData'
+import { postService } from '@/services/postService'
+import { MOCK_POSTS } from '@/data/mockData' // keep fallback
 
 const TABS = [
   { id: 'smart', label: 'For You', icon: Sparkles },
@@ -20,18 +21,35 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('smart')
 
-  useEffect(() => {
+ useEffect(() => {
+  const fetchPosts = async () => {
     setLoading(true)
-    setTimeout(() => {
+    try {
+      const data = await postService.getFeed()
+
+      if (Array.isArray(data) && data.length > 0) {
+        setPosts(data)
+      } else {
+        // 🔥 fallback when DB empty
+        const sorted = [...MOCK_POSTS].sort((a, b) => {
+          if (tab === 'trending') return b.likes - a.likes
+          return new Date(b.createdAt) - new Date(a.createdAt)
+        })
+        setPosts(sorted)
+      }
+    } catch {
+      // fallback on error
       const sorted = [...MOCK_POSTS].sort((a, b) => {
         if (tab === 'trending') return b.likes - a.likes
         return new Date(b.createdAt) - new Date(a.createdAt)
       })
       setPosts(sorted)
-      setLoading(false)
-    }, 800)
-  }, [tab])
+    }
+    setLoading(false)
+  }
 
+  fetchPosts()
+}, [tab])
   const handleNewPost = (post) => {
     setPosts(prev => [post, ...prev])
   }

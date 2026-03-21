@@ -11,7 +11,8 @@ import PostCard from '../components/post/PostCard'
 import PostSkeleton from '../components/post/PostSkeleton'
 import { SkillTag } from '../components/common/Badge'
 import { formatNumber } from '../utils/helpers'
-import { MOCK_USERS, MOCK_POSTS } from '@/data/mockData'
+import { userService } from '@/services/userService'
+import { postService } from '@/services/postService'
 import { format } from 'date-fns'
 import UserAvatar from '../components/common/UserAvatar'
 
@@ -26,21 +27,55 @@ export default function Profile() {
   const [tab, setTab] = useState('posts')
 
   const isOwnProfile = currentUser?.username === username
+ const handleFollow = async () => {
+  if (!profileUser?._id) return
 
-  useEffect(() => {
+  try {
+    const res = await userService.toggleFollow(profileUser._id)
+    setFollowing(res.isFollowing)
+
+    // update followers count
+    setProfileUser(prev => ({
+      ...prev,
+      followers: res.followers
+    }))
+  } catch (err) {
+    console.error(err)
+  }
+}
+ useEffect(() => {
+  const fetchProfile = async () => {
     setLoading(true)
-    setTimeout(() => {
+
+    try {
+      let userData
+
       if (isOwnProfile) {
-        setProfileUser(currentUser)
-        setUserPosts(MOCK_POSTS.filter(p => p.author.id === 'u1').slice(0, 3))
+        const res = await userService.getMe()
+        userData = res.user
       } else {
-        const found = MOCK_USERS.find(u => u.username === username)
-        setProfileUser(found || null)
-        setUserPosts(found ? MOCK_POSTS.filter(p => p.author.id === found.id) : [])
+        const res = await userService.getUserByUsername(username)
+        userData = res.user
       }
-      setLoading(false)
-    }, 600)
-  }, [username, isOwnProfile, currentUser])
+      setProfileUser(userData)
+      if (!isOwnProfile && currentUser) {
+  const isFollowingUser = userData.followers?.includes(currentUser._id)
+  setFollowing(isFollowingUser)
+}
+      // fetch posts
+      const postRes = await postService.getUserPosts(username)
+      setUserPosts(postRes.posts || [])
+
+    } catch (err) {
+      console.error(err)
+      setProfileUser(null)
+    }
+
+    setLoading(false)
+  }
+
+  fetchProfile()
+}, [username, isOwnProfile])
 
   if (loading) {
     return (
@@ -109,7 +144,7 @@ export default function Profile() {
                       <MessageSquare className="w-3.5 h-3.5" /> Message
                     </button>
                     <button
-                      onClick={() => setFollowing(p => !p)}
+                      onClick={handleFollow}
                       className={following ? 'btn-secondary text-xs px-3 py-1.5 gap-1.5' : 'btn-primary text-xs px-3 py-1.5 gap-1.5'}
                     >
                       {following ? (
@@ -168,18 +203,18 @@ export default function Profile() {
             <div className="flex items-center gap-6 mb-4 pb-4 border-b border-dark-border">
               <Link to="/followers" className="text-center group">
                 <p className="font-display font-bold text-white text-lg group-hover:text-brand-400 transition-colors">
-                  {formatNumber(profileUser.followers + (following ? 1 : 0))}
+                  {formatNumber(profileUser.followers?.length || 0)}
                 </p>
                 <p className="text-xs text-surface-600">Followers</p>
               </Link>
               <Link to="/following" className="text-center group">
                 <p className="font-display font-bold text-white text-lg group-hover:text-brand-400 transition-colors">
-                  {formatNumber(profileUser.following)}
+                  {formatNumber(profileUser.following?.length || 0)}
                 </p>
                 <p className="text-xs text-surface-600">Following</p>
               </Link>
               <div className="text-center">
-                <p className="font-display font-bold text-white text-lg">{userPosts.length || profileUser.posts}</p>
+                <p className="font-display font-bold text-white text-lg">{userPosts.length}</p>
                 <p className="text-xs text-surface-600">Posts</p>
               </div>
             </div>

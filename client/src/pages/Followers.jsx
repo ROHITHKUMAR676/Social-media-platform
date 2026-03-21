@@ -5,7 +5,7 @@ import Layout from '../components/layout/Layout'
 import { MOCK_USERS } from '@/data/mockData'
 import { useAuth } from '../context/AuthContext'
 import { SkillTag } from '../components/common/Badge'
-import UserAvatar from '../common/UserAvatar'
+import UserAvatar from "@/components/common/UserAvatar";
 export default function Followers() {
   const { isAuthenticated } = useAuth()
   const [followed, setFollowed] = useState({})

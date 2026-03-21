@@ -1,44 +1,86 @@
 import api from './api'
-import { sleep } from '../utils/helpers'
 
 export const authService = {
+
+  // 🔐 LOGIN
   async login(email, password) {
-    await sleep(600)
-    // Mock auth — in real app this hits backend
-    if (email && password) {
+    try {
+      const res = await api.post('/auth/login', { email, password })
+
       return {
-        success: true,
-        token: 'mock-jwt-token-' + Date.now(),
-        user: { email, id: 'cu1' },
+        token: res.data.token,
+        user: res.data.user,
       }
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'Login failed')
     }
-    throw new Error('Invalid credentials')
   },
 
+  // 📝 REGISTER (SEND OTP)
   async register(data) {
-    await sleep(800)
-    if (data.email && data.password && data.name) {
+    try {
+      const res = await api.post('/auth/register', data)
+
       return {
-        success: true,
-        token: 'mock-jwt-token-' + Date.now(),
-        user: { ...data, id: 'cu1' },
+        message: res.data.message,
       }
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'Registration failed')
     }
-    throw new Error('Registration failed')
   },
 
-  async logout() {
-    await sleep(200)
-    return { success: true }
+  // 🔢 VERIFY OTP
+  async verifyOtp(email, otp) {
+    try {
+      const res = await api.post('/auth/verify-otp', { email, otp })
+
+      return {
+        message: res.data.message,
+      }
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'OTP verification failed')
+    }
   },
 
-  async updateProfile(profileData) {
-    await sleep(700)
-    return { success: true, user: profileData }
+  // 🔁 RESEND OTP
+  async resendOtp(email) {
+    try {
+      const res = await api.post('/auth/resend-otp', { email })
+      return res.data
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'Failed to resend OTP')
+    }
   },
 
+  // 👤 GET CURRENT USER
   async getMe() {
-    await sleep(300)
-    return null // returns stored user
+    try {
+      const res = await api.get('/users/me') // 🔥 FIXED ROUTE
+      return {
+        user: res.data.user,
+      }
+    } catch (err) {
+      throw new Error('Failed to fetch user')
+    }
   },
+
+  // 👤 UPDATE PROFILE
+  async updateProfile(profileData) {
+    try {
+      const res = await api.put('/users/profile', profileData) // 🔥 FIXED ROUTE
+
+      return {
+        user: res.data.user,
+      }
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'Profile update failed')
+    }
+  },
+
+  // 🚪 LOGOUT
+  async logout() {
+    localStorage.removeItem('dc_token')
+    localStorage.removeItem('dc_user')
+    return { success: true }
+  }
 }

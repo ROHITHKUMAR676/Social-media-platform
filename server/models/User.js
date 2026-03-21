@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    // 🔹 Basic Info
+    // 🔐 BASIC AUTH
     name: {
       type: String,
       required: true,
@@ -11,8 +11,9 @@ const userSchema = new mongoose.Schema(
 
     username: {
       type: String,
+      required: true,
       unique: true,
-      sparse: true,
+      lowercase: true,
       trim: true,
     },
 
@@ -22,71 +23,70 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      match: [/^\S+@\S+\.\S+$/, "Please use a valid email address"],
     },
 
     password: {
       type: String,
       required: true,
-      select: false,
     },
 
-    // 🔹 Profile
-    avatar: {
-      type: String,
-      default: "https://api.dicebear.com/7.x/notionists/svg?seed=user",
+    isVerified: {
+      type: Boolean,
+      default: false, // OTP verification
     },
 
-    cover: {
-      type: String,
-      default: "",
-    },
-
+    // 👤 PROFILE (from CreateProfile)
     bio: {
       type: String,
       default: "",
-      maxlength: 200,
+      maxlength: 250,
     },
 
-    // 🔹 Professional Info
-    skills: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
+    role: {
+      type: String,
+      default: "",
+    },
+
+    company: {
+      type: String,
+      default: "",
+    },
 
     location: {
       type: String,
       default: "",
     },
 
-    github: {
+    website: {
       type: String,
       default: "",
     },
 
-    linkedin: {
+    // 🧠 SKILLS
+    skills: [
+      {
+        type: String,
+      },
+    ],
+
+    // 🖼️ AVATAR + RESUME
+    avatar: {
       type: String,
       default: "",
     },
 
-    college: {
+    resume: {
       type: String,
       default: "",
     },
 
-    school: {
-      type: String,
-      default: "",
+    // ⭐ BADGE SYSTEM (from PostCard)
+    verified: {
+      type: Boolean,
+      default: false, // blue tick (NOT OTP)
     },
 
-    year: {
-      type: String,
-      default: "",
-    },
-
-    // 🔹 Social
+    // 👥 SOCIAL SYSTEM
     followers: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -100,12 +100,14 @@ const userSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+
+    // 📊 PROFILE STATUS
+    profileCompleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
-
-// 🔥 Indexes
-userSchema.index({ email: 1 });
-userSchema.index({ username: 1 });
 
 export default mongoose.model("User", userSchema);

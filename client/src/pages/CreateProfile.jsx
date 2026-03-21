@@ -195,23 +195,38 @@ export default function CreateProfile() {
 
   const goBack = () => { setErrors({}); setStep(p => p - 1) }
 
-  // ── Final submit ────────────────────────────────────────────
-  const handleFinish = async () => {
-    const e = validateStep(2)
-    if (Object.keys(e).length) { setErrors(e); return }
+const handleFinish = async () => {
+  const e = validateStep(2)
+  if (Object.keys(e).length) { setErrors(e); return }
 
-    setLoading(true)
-    await completeProfile({
-      ...form,
-      // Use uploaded photo; otherwise the AuthContext will fall back to
-      // the dicebear avatar — but we pass a flag so Profile.jsx can
-      // render the initial-letter avatar instead.
+  setLoading(true)
+
+  try {
+    const res = await completeProfile({
+      name: form.name,
+      username: form.username,
+      bio: form.bio,
+      skills: form.skills,
+      location: form.location,
+
+      github: form.website,
+      linkedin: '',
+      college: form.company,
+      year: '',
+
       avatar: photoUrl || null,
-      avatarFallback: !photoUrl,
     })
-    setLoading(false)
-    navigate('/', { replace: true })
+
+    if (res.success) {
+      navigate('/', { replace: true })
+    }
+
+  } catch (err) {
+    setErrors({ username: err.message })
   }
+
+  setLoading(false)
+}
 
   // ── Derived ─────────────────────────────────────────────────
   const progressPct = ((step) / (STEPS.length - 1)) * 100

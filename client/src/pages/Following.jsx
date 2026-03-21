@@ -4,7 +4,7 @@ import { UserCheck, UserMinus } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import { MOCK_USERS } from '@/data/mockData'
 import { SkillTag } from '../components/common/Badge'
-import UserAvatar from '../common/UserAvatar'
+import UserAvatar from "@/components/common/UserAvatar";
 export default function Following() {
   const following = MOCK_USERS.slice(0, 3)
   const [unfollowed, setUnfollowed] = useState({})

@@ -11,7 +11,8 @@ export default function Footer() {
           </div>
           <span className="font-display font-bold text-surface-500 text-sm">DevConnect</span>
         </div>
-        <p className="text-xs text-surface-700">© 2024 DevConnect. Built for developers.</p>
+        <p className="text-xs text-surface-700">© 2026
+           DevConnect. Built for developers.</p>
       </div>
     </footer>
   )

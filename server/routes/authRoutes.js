@@ -1,25 +1,10 @@
 import express from "express";
-import {
-  registerUser,
-  loginUser,
-  verifyOtp,
-} from "../controllers/authController.js";
-
-import { protect } from "../middleware/authMiddleware.js";
-
+import { register, login, verifyOtp } from "../controllers/authController.js";
+import { resendOtp } from "../controllers/authController.js";
 const router = express.Router();
 
-// 🔐 Auth Routes
-router.post("/register", registerUser);
+router.post("/register", register);
+router.post("/login", login);
 router.post("/verify-otp", verifyOtp);
-router.post("/login", loginUser);
-
-// 👤 Get current logged-in user
-router.get("/me", protect, (req, res) => {
-  res.json({
-    success: true,
-    user: req.user,
-  });
-});
-
+router.post("/resend-otp", resendOtp);
 export default router;

@@ -2,32 +2,44 @@ import Post from "../models/Post.js";
 import User from "../models/User.js";
 
 // 📝 Create Post
-export const createPost = async (req, res, next) => {
+export const createPost = async (req, res) => {
   try {
-    const { content, image } = req.body;
-
-    if (!content) {
-      res.status(400);
-      throw new Error("Post content is required");
-    }
+    const { content, codeSnippet, tags } = req.body;
 
     const post = await Post.create({
-      user: req.user._id,
+      author: req.user._id,
       content,
-      image: image || null,
+      codeSnippet,
+      tags,
     });
 
-    const populatedPost = await post.populate("user", "name username avatar");
+    const populated = await post.populate(
+      "author",
+      "name username avatar role verified"
+    );
 
     res.status(201).json({
-      success: true,
-      post: populatedPost,
+      id: populated._id,
+      content: populated.content,
+      codeSnippet: populated.codeSnippet,
+      tags: populated.tags,
+      likes: 0,
+      comments: 0,
+      createdAt: populated.createdAt,
+      liked: false,
+      bookmarked: false,
+      author: {
+        name: populated.author.name,
+        username: populated.author.username,
+        avatar: populated.author.avatar,
+        role: populated.author.role,
+        verified: populated.author.verified,
+      },
     });
   } catch (err) {
-    next(err);
+    res.status(500).json({ message: err.message });
   }
 };
-
 // 📄 Get Feed (SMART FEED 🔥)
 export const getPosts = async (req, res, next) => {
   try {

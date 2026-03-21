@@ -1,59 +1,46 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { authService } from '../services/authService'
-import { sleep } from '../utils/helpers'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser]                     = useState(null)
+  const [user, setUser] = useState(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading]           = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const [profileCompleted, setProfileCompleted] = useState(false)
-  // NEW: tracks whether the user has verified their email OTP
-  const [otpVerified, setOtpVerified]       = useState(false)
+  const [otpVerified, setOtpVerified] = useState(false)
 
-  // ── Rehydrate from localStorage ─────────────────────────────
+  // 🔁 Restore session
   useEffect(() => {
     const stored = localStorage.getItem('dc_user')
-    const token  = localStorage.getItem('dc_token')
+    const token = localStorage.getItem('dc_token')
+
     if (stored && token) {
-      try {
-        const parsed = JSON.parse(stored)
-        setUser(parsed)
-        setIsAuthenticated(true)
-        setProfileCompleted(parsed.profileCompleted || false)
-        // If they already verified in a previous session, honour it
-        setOtpVerified(parsed.otpVerified || false)
-      } catch {}
+      const parsed = JSON.parse(stored)
+      setUser(parsed)
+      setIsAuthenticated(true)
+      setProfileCompleted(parsed.profileCompleted || false)
+      setOtpVerified(true)
     }
+
     setIsLoading(false)
   }, [])
 
-  // ── Login ────────────────────────────────────────────────────
+  // 🔐 LOGIN
   const login = useCallback(async (email, password) => {
     setIsLoading(true)
     try {
-      const result = await authService.login(email, password)
-      const userData = {
-        id: 'cu1',
-        name: 'Dev User',
-        username: 'devuser',
-        email,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}&backgroundColor=b6e3f4`,
-        bio: '', skills: [], role: '', company: '',
-        location: '', website: '',
-        followers: 0, following: 0, posts: 0,
-        profileCompleted: false,
-        otpVerified: true, // existing users are already verified
-        joined: new Date().toISOString(),
-      }
-      setUser(userData)
+      const res = await authService.login(email, password)
+
+      setUser(res.user)
       setIsAuthenticated(true)
-      setProfileCompleted(false)
+      setProfileCompleted(res.user.profileCompleted || false)
       setOtpVerified(true)
-      localStorage.setItem('dc_user', JSON.stringify(userData))
-      localStorage.setItem('dc_token', result.token)
-      return { success: true }
+
+      localStorage.setItem('dc_user', JSON.stringify(res.user))
+      localStorage.setItem('dc_token', res.token)
+
+      return { success: true, user: res.user } // 🔥 important
     } catch (err) {
       return { success: false, error: err.message }
     } finally {
@@ -61,33 +48,24 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  // ── Register ─────────────────────────────────────────────────
-  // After register the user is NOT yet otp-verified.
-  // We store them in state + localStorage so VerifyOtp can read
-  // their email, but we set otpVerified: false.
+  // 📝 REGISTER
   const register = useCallback(async (data) => {
     setIsLoading(true)
     try {
-      const result = await authService.register(data)
-      const userData = {
-        id: 'cu1',
-        name: data.name,
-        username: data.username || data.name.toLowerCase().replace(/\s/g, ''),
+      await authService.register(data)
+
+      const tempUser = {
         email: data.email,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.email}&backgroundColor=b6e3f4`,
-        bio: '', skills: [], role: '', company: '',
-        location: '', website: '',
-        followers: 0, following: 0, posts: 0,
-        profileCompleted: false,
-        otpVerified: false,       // ← must verify before profile setup
-        joined: new Date().toISOString(),
+        name: data.name,
+        username: data.username,
       }
-      setUser(userData)
-      setIsAuthenticated(true)
-      setProfileCompleted(false)
+
+      setUser(tempUser)
+      setIsAuthenticated(false)
       setOtpVerified(false)
-      localStorage.setItem('dc_user', JSON.stringify(userData))
-      localStorage.setItem('dc_token', result.token)
+
+      localStorage.setItem('dc_user', JSON.stringify(tempUser))
+
       return { success: true }
     } catch (err) {
       return { success: false, error: err.message }
@@ -96,70 +74,85 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  // ── Verify OTP ───────────────────────────────────────────────
-  // In production replace this with a real API call.
-  // For demo: any 6-digit code is accepted.
-  const verifyOtp = useCallback(async (code) => {
-    await sleep(800) // simulate network
-    if (code.length !== 6) {
-      return { success: false, error: 'Enter the full 6-digit code.' }
+  // 🔢 VERIFY OTP
+  const verifyOtp = useCallback(async (otp) => {
+    try {
+      await authService.verifyOtp(user.email, otp)
+
+      // 🔥 fetch real user after verification
+      const res = await authService.getMe()
+
+      setUser(res.user)
+      setIsAuthenticated(true)
+      setOtpVerified(true)
+      setProfileCompleted(res.user.profileCompleted || false)
+
+      localStorage.setItem('dc_user', JSON.stringify(res.user))
+
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: err.message }
     }
-    // Demo: accept any code. In prod: POST /auth/verify-otp { code }
-    const updatedUser = { ...user, otpVerified: true }
-    setOtpVerified(true)
-    setUser(updatedUser)
-    localStorage.setItem('dc_user', JSON.stringify(updatedUser))
-    return { success: true }
   }, [user])
 
-  // ── Resend OTP ───────────────────────────────────────────────
+  // 🔁 RESEND OTP
   const resendOtp = useCallback(async () => {
-    await sleep(500) // simulate POST /auth/resend-otp
-    return { success: true }
-  }, [])
+    try {
+      await authService.resendOtp(user.email)
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  }, [user])
 
-  // ── Logout ───────────────────────────────────────────────────
+  // 🚪 LOGOUT
   const logout = useCallback(async () => {
     await authService.logout()
+
     setUser(null)
     setIsAuthenticated(false)
     setProfileCompleted(false)
     setOtpVerified(false)
+
     localStorage.removeItem('dc_user')
     localStorage.removeItem('dc_token')
   }, [])
 
-  // ── Complete Profile ─────────────────────────────────────────
+  // 👤 COMPLETE PROFILE
   const completeProfile = useCallback(async (profileData) => {
     setIsLoading(true)
     try {
-      const updatedUser = { ...user, ...profileData, profileCompleted: true }
-      await authService.updateProfile(updatedUser)
-      setUser(updatedUser)
+      const res = await authService.updateProfile(profileData)
+
+      setUser(res.user)
       setProfileCompleted(true)
-      localStorage.setItem('dc_user', JSON.stringify(updatedUser))
+
+      localStorage.setItem('dc_user', JSON.stringify(res.user))
+
       return { success: true }
     } catch (err) {
       return { success: false, error: err.message }
     } finally {
       setIsLoading(false)
     }
-  }, [user])
+  }, [])
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      isAuthenticated,
-      isLoading,
-      profileCompleted,
-      otpVerified,
-      login,
-      register,
-      verifyOtp,
-      resendOtp,
-      logout,
-      completeProfile,
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        isLoading,
+        profileCompleted,
+        otpVerified,
+        login,
+        register,
+        verifyOtp,
+        resendOtp,
+        logout,
+        completeProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

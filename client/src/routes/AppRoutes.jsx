@@ -35,14 +35,7 @@ export default function AppRoutes() {
 
       {/* ── Auth required, OTP NOT yet needed ─────────────────── */}
       {/* Verify OTP: user is logged in but hasn't verified yet    */}
-      <Route
-        path="/verify-otp"
-        element={
-          <ProtectedRoute requireOtp={false} requireProfile={false}>
-            <VerifyOtp />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/verify-otp" element={<VerifyOtp />} />
 
       {/* ── Auth + OTP verified, profile NOT yet needed ───────── */}
       <Route

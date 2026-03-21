@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Image, Code, Hash, X, Send } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import UserAvatar from '../common/UserAvatar'
+import { postService } from '@/services/postService'
 export default function CreatePost({ onPost }) {
   const { user } = useAuth()
   const [content, setContent] = useState('')
@@ -25,31 +26,30 @@ export default function CreatePost({ onPost }) {
 
   const removeTag = (tag) => setTags(p => p.filter(t => t !== tag))
 
-  const handlePost = async () => {
-    if (!content.trim()) return
-    setIsPosting(true)
-    await new Promise(r => setTimeout(r, 600))
-    const newPost = {
-      id: 'p' + Date.now(),
-      author: user,
+ const handlePost = async () => {
+  if (!content.trim()) return
+
+  setIsPosting(true)
+
+  try {
+    const newPost = await postService.createPost({
       content,
-      codeSnippet: showCode && code ? code : null,
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      createdAt: new Date().toISOString(),
+      codeSnippet: showCode ? code : '',
       tags,
-      liked: false,
-      bookmarked: false,
-    }
+    })
+
     onPost?.(newPost)
-    setContent('')
-    setCode('')
-    setTags([])
-    setShowCode(false)
-    setFocused(false)
-    setIsPosting(false)
+  } catch (err) {
+    console.error(err)
   }
+
+  setContent('')
+  setCode('')
+  setTags([])
+  setShowCode(false)
+  setFocused(false)
+  setIsPosting(false)
+}
 
   return (
     <div className={`bg-dark-card border rounded-2xl transition-all duration-200 ${

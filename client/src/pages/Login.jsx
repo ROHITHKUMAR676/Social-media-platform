@@ -4,7 +4,7 @@ import { Mail, Lock, Eye, EyeOff, Zap, ArrowRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import Input from '../components/common/Input'
 import Button from '../components/common/Button'
-
+import groupAvatar from "../assets/group-avatar.png";
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -15,19 +15,26 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
     if (!form.email || !form.password) {
       setError('Please fill all fields.')
       return
     }
+
     setLoading(true)
     setError('')
+
     const result = await login(form.email, form.password)
+
     setLoading(false)
-    if (result.success) {
-      navigate('/create-profile')
-    } else {
-      setError(result.error || 'Login failed.')
-    }
+
+   if (result.success) {
+  if (result.user?.profileCompleted) {
+    navigate('/')
+  } else {
+    navigate('/create-profile')
+  }
+}
   }
 
   const handleDemo = async () => {
@@ -61,16 +68,20 @@ export default function Login() {
             Join 50,000+ developers sharing knowledge, building careers, and shipping together.
           </p>
         </div>
-        {/* Testimonial */}
+
         <div className="relative bg-dark-card/60 backdrop-blur-sm border border-dark-border rounded-2xl p-5">
           <p className="text-surface-300 text-sm leading-relaxed mb-3">
-            "DevConnect is where I found my co-founder, my team, and my first 3 enterprise customers. It's the LinkedIn we actually wanted."
+            "DevConnect is where we found our passion, our team, and my first 3 enterprise customers. It's the LinkedIn we actually wanted."
           </p>
           <div className="flex items-center gap-2.5">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=testimonial&backgroundColor=c0aede" className="w-8 h-8 rounded-full" alt="" />
+         <img 
+  src={groupAvatar}
+  className="w-8 h-8 rounded-full object-cover"
+  alt="group"
+/>
             <div>
-              <p className="text-sm font-semibold text-white">Aisha Patel</p>
-              <p className="text-xs text-surface-500">CTO, Buildfast</p>
+              <p className="text-sm font-semibold text-white">Team XO</p>
+              <p className="text-xs text-surface-500">Founders, DevConnect</p>
             </div>
           </div>
         </div>
@@ -96,6 +107,41 @@ export default function Login() {
             </div>
           )}
 
+          {/* 🔥 SOCIAL LOGIN (UI ONLY) */}
+          <div className="space-y-3 mb-4">
+            <button
+              type="button"
+              onClick={() => console.log("Google login (coming soon)")}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dark-border bg-dark-card text-surface-300 hover:bg-dark-hover transition-all text-sm"
+            >
+              <img
+                src="https://www.svgrepo.com/show/475656/google-color.svg"
+                alt="google"
+                className="w-4 h-4"
+              />
+              Continue with Google
+            </button>
+
+            <button
+              type="button"
+              onClick={() => console.log("GitHub login (coming soon)")}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dark-border bg-dark-card text-surface-300 hover:bg-dark-hover transition-all text-sm"
+            >
+              <img
+                src="https://www.svgrepo.com/show/512317/github-142.svg"
+                alt="github"
+                className="w-4 h-4 invert"
+              />
+              Continue with GitHub
+            </button>
+
+            <div className="flex items-center gap-3 text-xs text-surface-600">
+              <div className="flex-1 h-px bg-dark-border" />
+              OR
+              <div className="flex-1 h-px bg-dark-border" />
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               label="Email"
@@ -116,11 +162,13 @@ export default function Login() {
               placeholder="••••••••"
               autoComplete="current-password"
             />
+
             <div className="flex justify-end">
               <button type="button" className="text-xs text-brand-400 hover:text-brand-300 transition-colors">
                 Forgot password?
               </button>
             </div>
+
             <Button type="submit" loading={loading} className="w-full justify-center py-3">
               Sign in <ArrowRight className="w-4 h-4" />
             </Button>
@@ -132,14 +180,7 @@ export default function Login() {
             <div className="flex-1 h-px bg-dark-border" />
           </div>
 
-          <Button
-            variant="secondary"
-            onClick={handleDemo}
-            loading={loading}
-            className="w-full justify-center py-3"
-          >
-            ⚡ Continue with demo account
-          </Button>
+         
 
           <p className="text-center text-sm text-surface-500 mt-6">
             No account?{' '}
