@@ -31,10 +31,12 @@ export default function VerifyOtp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [digits])
 
-  // ── Redirect if not coming from register ──────────────────────
   useEffect(() => {
-    if (!user) navigate('/register', { replace: true })
-  }, [user, navigate])
+  // 🔥 only redirect if user is truly missing AND not loading
+  if (!user && !isLoading) {
+    navigate('/register', { replace: true })
+  }
+}, [user, isLoading, navigate])
 
   // ── Input handlers ────────────────────────────────────────────
   const handleChange = (index, value) => {
@@ -83,25 +85,39 @@ export default function VerifyOtp() {
   }
 
   // ── Verify ────────────────────────────────────────────────────
-  const handleVerify = async () => {
-    const code = digits.join('')
-    if (code.length < OTP_LENGTH) {
-      setError('Please enter the full 6-digit code.')
-      return
-    }
-    setVerifying(true)
-    setError('')
-    const result = await verifyOtp(code)
-    setVerifying(false)
-    if (result.success) {
-      setSuccess(true)
-      setTimeout(() => navigate('/create-profile', { replace: true }), 1200)
-    } else {
-      setError(result.error || 'Invalid code. Please try again.')
-      setDigits(Array(OTP_LENGTH).fill(''))
-      setTimeout(() => inputRefs.current[0]?.focus(), 50)
-    }
+const handleVerify = async () => {
+  const code = digits.join('')
+
+  if (code.length < OTP_LENGTH) {
+    setError('Please enter the full 6-digit code.')
+    return
   }
+
+  setVerifying(true)
+  setError('')
+
+  const result = await verifyOtp(code)
+
+  setVerifying(false)
+
+  if (result.success) {
+    setSuccess(true)
+
+    setTimeout(() => {
+      const isProfileDone = result.user?.profileCompleted
+
+      if (isProfileDone) {
+        navigate('/', { replace: true })
+      } else {
+        navigate('/create-profile', { replace: true })
+      }
+    }, 1000) // slightly faster, feels better UX
+  } else {
+    setError(result.error || 'Invalid code. Please try again.')
+    setDigits(Array(OTP_LENGTH).fill(''))
+    setTimeout(() => inputRefs.current[0]?.focus(), 50)
+  }
+}
 
   // ── Resend ────────────────────────────────────────────────────
   const handleResend = async () => {

@@ -11,18 +11,15 @@ export default function ProtectedRoute({ children, requireOtp = true, requirePro
 
   // 1. Must be logged in
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+  // allow access to verify-otp without login
+  if (location.pathname === '/verify-otp') {
+    return children
   }
 
-  // 2. Must have verified OTP (skip for /verify-otp itself)
-  if (requireOtp && !otpVerified && location.pathname !== '/verify-otp') {
-    return <Navigate to="/verify-otp" replace />
-  }
+  return <Navigate to="/login" state={{ from: location }} replace />
+}
 
-  // 3. Must have completed profile (skip for /create-profile itself)
-  if (requireProfile && otpVerified && !profileCompleted && location.pathname !== '/create-profile') {
-    return <Navigate to="/create-profile" replace />
-  }
+  
 
   return children
 }

@@ -46,7 +46,8 @@ export default function Profile() {
  useEffect(() => {
   const fetchProfile = async () => {
     setLoading(true)
-
+    console.log("Current User:", currentUser)
+  console.log("URL Username:", username)
     try {
       let userData
 
@@ -62,9 +63,13 @@ export default function Profile() {
   const isFollowingUser = userData.followers?.includes(currentUser._id)
   setFollowing(isFollowingUser)
 }
-      // fetch posts
-      const postRes = await postService.getUserPosts(username)
-      setUserPosts(postRes.posts || [])
+     try {
+  const postRes = await postService.getUserPosts(username)
+  setUserPosts(postRes.posts || [])
+} catch (err) {
+  console.error("Posts error:", err)
+  setUserPosts([]) // prevent crash
+}
 
     } catch (err) {
       console.error(err)

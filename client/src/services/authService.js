@@ -16,31 +16,28 @@ export const authService = {
     }
   },
 
-  // 📝 REGISTER (SEND OTP)
-  async register(data) {
-    try {
-      const res = await api.post('/auth/register', data)
-
-      return {
-        message: res.data.message,
-      }
-    } catch (err) {
-      throw new Error(err.response?.data?.message || 'Registration failed')
-    }
-  },
+ async register(data) {
+  try {
+    const res = await api.post('/auth/register', data)
+    return { success: true }
+  } catch (err) {
+    throw new Error(err.response?.data?.message || 'Registration failed')
+  }
+},
 
   // 🔢 VERIFY OTP
   async verifyOtp(email, otp) {
-    try {
-      const res = await api.post('/auth/verify-otp', { email, otp })
+  try {
+    const res = await api.post('/auth/verify-otp', { email, otp })
 
-      return {
-        message: res.data.message,
-      }
-    } catch (err) {
-      throw new Error(err.response?.data?.message || 'OTP verification failed')
+    return {
+      token: res.data.token,
+      user: res.data.user,
     }
-  },
+  } catch (err) {
+    throw new Error(err.response?.data?.message || 'OTP verification failed')
+  }
+},
 
   // 🔁 RESEND OTP
   async resendOtp(email) {

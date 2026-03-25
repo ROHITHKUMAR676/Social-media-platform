@@ -26,7 +26,7 @@ export function AuthProvider({ children }) {
     setIsLoading(false)
   }, [])
 
-  // 🔐 LOGIN
+  // 🔐 LOGIN (FIXED)
   const login = useCallback(async (email, password) => {
     setIsLoading(true)
     try {
@@ -34,13 +34,13 @@ export function AuthProvider({ children }) {
 
       setUser(res.user)
       setIsAuthenticated(true)
-      setProfileCompleted(res.user.profileCompleted || false)
       setOtpVerified(true)
+      setProfileCompleted(res.user.profileCompleted || false)
 
       localStorage.setItem('dc_user', JSON.stringify(res.user))
       localStorage.setItem('dc_token', res.token)
 
-      return { success: true, user: res.user } // 🔥 important
+      return { success: true, user: res.user }
     } catch (err) {
       return { success: false, error: err.message }
     } finally {
@@ -74,27 +74,32 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  // 🔢 VERIFY OTP
+  // 🔢 VERIFY OTP (FIXED 🔥)
   const verifyOtp = useCallback(async (otp) => {
-    try {
-      await authService.verifyOtp(user.email, otp)
+  try {
+    const storedUser = JSON.parse(localStorage.getItem('dc_user'))
+    const email = user?.email || storedUser?.email
 
-      // 🔥 fetch real user after verification
-      const res = await authService.getMe()
-
-      setUser(res.user)
-      setIsAuthenticated(true)
-      setOtpVerified(true)
-      setProfileCompleted(res.user.profileCompleted || false)
-
-      localStorage.setItem('dc_user', JSON.stringify(res.user))
-
-      return { success: true }
-    } catch (err) {
-      return { success: false, error: err.message }
+    if (!email) {
+      return { success: false, error: "Session expired. Please register again." }
     }
-  }, [user])
 
+    const res = await authService.verifyOtp(email, otp)
+
+    setUser(res.user)
+    setIsAuthenticated(true)
+    setOtpVerified(true)
+    setProfileCompleted(res.user.profileCompleted || false)
+
+    localStorage.setItem('dc_user', JSON.stringify(res.user))
+    localStorage.setItem('dc_token', res.token)
+
+    return { success: true, user: res.user }
+
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+}, [])
   // 🔁 RESEND OTP
   const resendOtp = useCallback(async () => {
     try {
@@ -119,23 +124,31 @@ export function AuthProvider({ children }) {
   }, [])
 
   // 👤 COMPLETE PROFILE
-  const completeProfile = useCallback(async (profileData) => {
-    setIsLoading(true)
-    try {
-      const res = await authService.updateProfile(profileData)
+ const completeProfile = useCallback(async (profileData) => {
+  setIsLoading(true)
 
-      setUser(res.user)
-      setProfileCompleted(true)
+  try {
+    const res = await authService.updateProfile(profileData)
 
-      localStorage.setItem('dc_user', JSON.stringify(res.user))
-
-      return { success: true }
-    } catch (err) {
-      return { success: false, error: err.message }
-    } finally {
-      setIsLoading(false)
+    // 🔥 FORCE CONSISTENCY
+    const updatedUser = {
+      ...res.user,
+      profileCompleted: true,
     }
-  }, [])
+
+    setUser(updatedUser)
+    setProfileCompleted(true)
+
+    localStorage.setItem('dc_user', JSON.stringify(updatedUser))
+
+    return { success: true, user: updatedUser }
+
+  } catch (err) {
+    return { success: false, error: err.message }
+  } finally {
+    setIsLoading(false)
+  }
+}, [])
 
   return (
     <AuthContext.Provider

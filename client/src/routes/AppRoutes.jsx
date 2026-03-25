@@ -22,7 +22,14 @@ import { FullPageLoader } from '../components/common/Loader'
 export default function AppRoutes() {
   const { isLoading } = useAuth()
   if (isLoading) return <FullPageLoader />
+  const { isAuthenticated, otpVerified, profileCompleted } = useAuth()
+  if (isAuthenticated && !otpVerified) {
+  return <VerifyOtp />
+}
 
+if (isAuthenticated && otpVerified && !profileCompleted) {
+  return <CreateProfile />
+}
   return (
     <Routes>
       {/* ── Fully public ───────────────────────────────────────── */}
@@ -35,11 +42,18 @@ export default function AppRoutes() {
 
       {/* ── Auth required, OTP NOT yet needed ─────────────────── */}
       {/* Verify OTP: user is logged in but hasn't verified yet    */}
-      <Route path="/verify-otp" element={<VerifyOtp />} />
+      <Route
+  path="/verify-otp"
+  element={
+    <ProtectedRoute requireAuth={false} requireOtp={false}>
+      <VerifyOtp />
+    </ProtectedRoute>
+  }
+/>
 
       {/* ── Auth + OTP verified, profile NOT yet needed ───────── */}
       <Route
-        path="/create-profile"
+        path="/create-profile"    
         element={
           <ProtectedRoute requireOtp={true} requireProfile={false}>
             <CreateProfile />
