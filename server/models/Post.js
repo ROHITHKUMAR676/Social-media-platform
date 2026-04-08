@@ -32,10 +32,22 @@ const postSchema = new mongoose.Schema(
       maxlength: 1000,
     },
 
+    codeSnippet: {
+      type: String,
+      default: "",
+    },
+
     image: {
       type: String,
       default: null,
     },
+
+    tags: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
 
     likes: [
       {
@@ -46,15 +58,17 @@ const postSchema = new mongoose.Schema(
 
     comments: [commentSchema],
 
-    likesCount: {
-      type: Number,
-      default: 0,
-    },
+    bookmarks: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true }
 );
 
-// 🔥 Index for faster feed loading
+// 🔥 Index for fast feed
 postSchema.index({ createdAt: -1 });
 
 export default mongoose.model("Post", postSchema);

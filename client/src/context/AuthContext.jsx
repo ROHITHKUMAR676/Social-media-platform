@@ -26,7 +26,7 @@ export function AuthProvider({ children }) {
     setIsLoading(false)
   }, [])
 
-  // 🔐 LOGIN (FIXED)
+  // 🔐 LOGIN
   const login = useCallback(async (email, password) => {
     setIsLoading(true)
     try {
@@ -74,32 +74,33 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  // 🔢 VERIFY OTP (FIXED 🔥)
+  // 🔢 VERIFY OTP
   const verifyOtp = useCallback(async (otp) => {
-  try {
-    const storedUser = JSON.parse(localStorage.getItem('dc_user'))
-    const email = user?.email || storedUser?.email
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('dc_user'))
+      const email = user?.email || storedUser?.email
 
-    if (!email) {
-      return { success: false, error: "Session expired. Please register again." }
+      if (!email) {
+        return { success: false, error: "Session expired. Please register again." }
+      }
+
+      const res = await authService.verifyOtp(email, otp)
+
+      setUser(res.user)
+      setIsAuthenticated(true)
+      setOtpVerified(true)
+      setProfileCompleted(res.user.profileCompleted || false)
+
+      localStorage.setItem('dc_user', JSON.stringify(res.user))
+      localStorage.setItem('dc_token', res.token)
+
+      return { success: true, user: res.user }
+
+    } catch (err) {
+      return { success: false, error: err.message }
     }
+  }, [user])
 
-    const res = await authService.verifyOtp(email, otp)
-
-    setUser(res.user)
-    setIsAuthenticated(true)
-    setOtpVerified(true)
-    setProfileCompleted(res.user.profileCompleted || false)
-
-    localStorage.setItem('dc_user', JSON.stringify(res.user))
-    localStorage.setItem('dc_token', res.token)
-
-    return { success: true, user: res.user }
-
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-}, [])
   // 🔁 RESEND OTP
   const resendOtp = useCallback(async () => {
     try {
@@ -124,31 +125,56 @@ export function AuthProvider({ children }) {
   }, [])
 
   // 👤 COMPLETE PROFILE
- const completeProfile = useCallback(async (profileData) => {
-  setIsLoading(true)
+  const completeProfile = useCallback(async (profileData) => {
+    setIsLoading(true)
 
-  try {
-    const res = await authService.updateProfile(profileData)
+    try {
+      const res = await authService.updateProfile(profileData)
 
-    // 🔥 FORCE CONSISTENCY
-    const updatedUser = {
-      ...res.user,
-      profileCompleted: true,
+      const updatedUser = {
+        ...res.user,
+        profileCompleted: true,
+      }
+
+      setUser(updatedUser)
+      setProfileCompleted(true)
+
+      localStorage.setItem('dc_user', JSON.stringify(updatedUser))
+
+      return { success: true, user: updatedUser }
+
+    } catch (err) {
+      return { success: false, error: err.message }
+    } finally {
+      setIsLoading(false)
     }
+  }, [])
 
-    setUser(updatedUser)
-    setProfileCompleted(true)
+  // 🔥 FOLLOW GLOBAL SYNC (FIXED POSITION)
+  const updateFollowing = useCallback((targetUserId, isFollowing) => {
+    setUser(prev => {
+      if (!prev) return prev
 
-    localStorage.setItem('dc_user', JSON.stringify(updatedUser))
+      let updatedFollowing = prev.following || []
 
-    return { success: true, user: updatedUser }
+      if (isFollowing) {
+        updatedFollowing = [...updatedFollowing, targetUserId]
+      } else {
+        updatedFollowing = updatedFollowing.filter(
+          id => id.toString() !== targetUserId.toString()
+        )
+      }
 
-  } catch (err) {
-    return { success: false, error: err.message }
-  } finally {
-    setIsLoading(false)
-  }
-}, [])
+      const updatedUser = {
+        ...prev,
+        following: updatedFollowing
+      }
+
+      localStorage.setItem('dc_user', JSON.stringify(updatedUser))
+
+      return updatedUser
+    })
+  }, [])
 
   return (
     <AuthContext.Provider
@@ -164,6 +190,7 @@ export function AuthProvider({ children }) {
         resendOtp,
         logout,
         completeProfile,
+        updateFollowing,
       }}
     >
       {children}
@@ -175,4 +202,4 @@ export const useAuth = () => {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')
   return ctx
-}
+} 

@@ -1,10 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Heart, MessageCircle, Share2, Bookmark, MoreHorizontal,
   Code, CheckCheck, Send
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { userService } from '@/services/userService'
 import { LoginPromptModal } from '../common/Modal'
 import { SkillTag } from '../common/Badge'
 import { postService } from '@/services/postService'
@@ -12,7 +13,7 @@ import { formatRelativeTime, formatNumber } from '../../utils/helpers'
 import { MOCK_COMMENTS } from '@/data/mockData'
 import UserAvatar from '../common/UserAvatar'
 export default function PostCard({ post, onLike }) {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, user: currentUser, updateFollowing } = useAuth()
   const navigate = useNavigate()
   const [showLogin, setShowLogin] = useState(false)
   const [liked, setLiked] = useState(post.liked)
@@ -20,8 +21,28 @@ export default function PostCard({ post, onLike }) {
   const [bookmarked, setBookmarked] = useState(post.bookmarked)
   const [showComments, setShowComments] = useState(false)
   const [comment, setComment] = useState('')
-  const [comments, setComments] = useState(MOCK_COMMENTS[post.id] || [])
+  const [comments, setComments] = useState([])
+  const [loadingComments, setLoadingComments] = useState(false)
+  useEffect(() => {
+  if (!showComments) return
 
+  const fetchComments = async () => {
+    setLoadingComments(true)
+
+    try {
+      const res = await postService.getComments(post.id)
+      setComments(res.comments || [])
+    } catch (err) {
+      console.error(err)
+      // fallback to mock
+      setComments(MOCK_COMMENTS[post.id] || [])
+    }
+
+    setLoadingComments(false)
+  }
+
+  fetchComments()
+}, [showComments])
   const requireAuth = (action) => {
     if (!isAuthenticated) {
       setShowLogin(true)
@@ -30,27 +51,40 @@ export default function PostCard({ post, onLike }) {
     return true
   }
 
-  const handleLike = async () => {
+ const [isLiking, setIsLiking] = useState(false)
+
+const handleLike = async () => {
   if (!requireAuth()) return
+  if (isLiking) return // 🔥 prevent spam clicks
+
+  setIsLiking(true)
 
   const prevLiked = liked
+  const prevCount = likeCount
 
-  // 🔥 optimistic UI (instant feel)
+  // ⚡ Optimistic UI
   setLiked(!prevLiked)
-  setLikeCount(prevLiked ? likeCount - 1 : likeCount + 1)
+  setLikeCount(prevLiked ? prevCount - 1 : prevCount + 1)
 
   try {
     const res = await postService.toggleLike(post.id)
 
-    // 🔥 sync with backend
+    // ✅ sync with backend
     setLiked(res.liked)
     setLikeCount(res.likes)
   } catch (err) {
     console.error(err)
 
-    // 🔁 revert if error
+    // 🔁 FULL rollback (fixes your bug)
     setLiked(prevLiked)
-    setLikeCount(prevLiked ? likeCount : likeCount - 1)
+    setLikeCount(prevCount)
+  }
+
+  setIsLiking(false)
+}
+const handleDoubleClick = () => {
+  if (!liked) {
+    handleLike()
   }
 }
 
@@ -64,58 +98,125 @@ export default function PostCard({ post, onLike }) {
     setShowComments(p => !p)
   }
 
-  const handleSendComment = (e) => {
-    e.preventDefault()
-    if (!comment.trim()) return
-    const newComment = {
-      id: 'c' + Date.now(),
-      author: user,
-      content: comment,
-      likes: 0,
-      createdAt: new Date().toISOString(),
-    }
-    setComments(p => [...p, newComment])
-    setComment('')
+const handleSendComment = async (e) => {
+  e.preventDefault()
+  if (!comment.trim()) return
+
+  const text = comment
+  setComment('')
+
+  // 🔥 optimistic UI
+  const tempComment = {
+    id: Date.now(),
+    author: user,
+    text,
+    createdAt: new Date().toISOString(),
   }
+
+  setComments(prev => [...prev, tempComment])
+
+  try {
+    await postService.addComment(post.id, text)
+  } catch (err) {
+    console.error(err)
+  }
+}
 
   const handleShare = () => {
     if (!requireAuth()) return
     navigator.clipboard?.writeText(window.location.origin + '/post/' + post.id)
   }
+const [isFollowing, setIsFollowing] = useState(false)
+const [followLoading, setFollowLoading] = useState(false)
+useEffect(() => {
+  if (!currentUser || !post.author?._id) return
 
-  return (
+  const isFollowingAuthor = currentUser.following?.some(
+    id => id.toString() === post.author._id.toString()
+  )
+
+  setIsFollowing(isFollowingAuthor)
+}, [currentUser, post.author])
+const handleFollow = async () => {
+  if (!post.author?._id) return
+  if (followLoading) return
+
+  setFollowLoading(true)
+
+  try {
+    const res = await userService.toggleFollow(post.author._id)
+
+    setIsFollowing(res.isFollowing)
+
+    // 🔥 GLOBAL SYNC
+    updateFollowing(post.author._id, res.isFollowing)
+
+  } catch (err) {
+    console.error(err)
+  }
+
+  setFollowLoading(false)
+}
+    return (
     <>
-      <article className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden hover:border-surface-700/60 transition-all duration-200 animate-fade-in">
+      <article 
+       onDoubleClick={handleDoubleClick}
+      className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden hover:border-surface-700/60 transition-all duration-200 animate-fade-in">
         {/* Header */}
         <div className="flex items-start justify-between px-5 pt-5 pb-3">
-          <div className="flex items-center gap-3">
-            <Link to={`/profile/${post.author.username}`} className="flex-shrink-0">
-              <UserAvatar user={post.author} size="md" />
-            </Link>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <Link
-                  to={`/profile/${post.author.username}`}
-                  className="font-semibold text-white text-sm hover:text-brand-400 transition-colors"
-                >
-                  {post.author.name}
-                </Link>
-                {post.author.verified && (
-                  <span className="text-brand-400">
-                    <CheckCheck className="w-3.5 h-3.5" />
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-surface-500">
-                {post.author.role && <>{post.author.role} · </>}
-                {formatRelativeTime(post.createdAt)}
-              </p>
-            </div>
-          </div>
+  {/* LEFT SIDE */}
+  <div className="flex items-center gap-3">
+    <Link to={`/profile/${post.author.username}`} className="flex-shrink-0">
+      <UserAvatar user={post.author} size="md" />
+    </Link>
+    <div>
+      <div className="flex items-center gap-1.5">
+        <Link
+          to={`/profile/${post.author.username}`}
+          className="font-semibold text-white text-sm hover:text-brand-400 transition-colors"
+        >
+          {post.author.name}
+        </Link>
+        {post.author.verified && (
+          <span className="text-brand-400">
+            <CheckCheck className="w-3.5 h-3.5" />
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-surface-500">
+        {post.author.role && <>{post.author.role} · </>}
+        {formatRelativeTime(post.createdAt)}
+      </p>
+    </div>
+  </div>
+
+  {/* 🔥 RIGHT SIDE (FOLLOW + MENU) */}
+  <div className="flex items-center gap-2">
+    {/* FOLLOW BUTTON */}
+    {currentUser?._id !== post.author?._id && (
+      <button
+        onClick={handleFollow}
+        disabled={followLoading}
+        className={`text-xs px-3 py-1.5 rounded-lg transition ${
+          isFollowing
+            ? 'bg-dark-hover text-surface-400'
+            : 'bg-brand-600 text-white hover:bg-brand-500'
+        }`}
+      >
+        {isFollowing ? 'Following' : 'Follow'}
+      </button>
+    )}
+
+    {/* MENU BUTTON */}
+    <button className="p-1.5 rounded-lg text-surface-600 hover:text-surface-300 hover:bg-dark-hover transition-all">
+      <MoreHorizontal className="w-4 h-4" />
+    </button>
+  </div>
+</div>
           <button className="p-1.5 rounded-lg text-surface-600 hover:text-surface-300 hover:bg-dark-hover transition-all">
             <MoreHorizontal className="w-4 h-4" />
           </button>
-        </div>
+        
 
         {/* Content */}
         <div className="px-5 pb-3">
@@ -149,7 +250,7 @@ export default function PostCard({ post, onLike }) {
         {/* Stats */}
         <div className="px-5 pb-2 flex items-center gap-4 text-xs text-surface-600">
           <span>{formatNumber(likeCount)} likes</span>
-          <span>{formatNumber(post.comments + comments.length - (MOCK_COMMENTS[post.id]?.length || 0))} comments</span>
+          <span>{formatNumber(comments.length)} comments</span>
         </div>
 
         {/* Actions */}
@@ -162,7 +263,7 @@ export default function PostCard({ post, onLike }) {
                 : 'text-surface-500 hover:text-surface-300 hover:bg-dark-hover'
               }`}
           >
-            <Heart className={`w-4 h-4 ${liked ? 'fill-current' : ''}`} />
+            <Heart className={`w-4 h-4 transition-transform duration-150 ${liked ? 'fill-current scale-110' : ''}`} />
             <span className="hidden sm:inline">Like</span>
           </button>
 
@@ -211,7 +312,7 @@ export default function PostCard({ post, onLike }) {
                         <span className="text-xs font-semibold text-white">{c.author.name}</span>
                         <span className="text-xs text-surface-600">{formatRelativeTime(c.createdAt)}</span>
                       </div>
-                      <p className="text-sm text-surface-300">{c.content}</p>
+                      <p className="text-sm text-surface-300">{c.text}</p>
                     </div>
                   </div>
                 ))}

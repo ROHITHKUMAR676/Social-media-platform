@@ -27,9 +27,9 @@ export default function Home() {
     try {
       const data = await postService.getFeed()
 
-      if (Array.isArray(data) && data.length > 0) {
-        setPosts(data)
-      } else {
+      if (Array.isArray(data) && data.length > 0 && data[0].id !== 'p1') {
+  setPosts(data)
+} else {
         // 🔥 fallback when DB empty
         const sorted = [...MOCK_POSTS].sort((a, b) => {
           if (tab === 'trending') return b.likes - a.likes
@@ -100,9 +100,10 @@ export default function Home() {
         ) : posts.length === 0 ? (
           <EmptyFeed />
         ) : (
-          posts.map(post => (
-            <PostCard key={post.id} post={post} />
-          ))
+          posts.map(post => {
+  console.log("POST:", post)
+  return <PostCard key={post.id} post={post} />
+})
         )}
       </div>
     </Layout>

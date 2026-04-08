@@ -29,7 +29,7 @@ export const postService = {
 
   async toggleLike(postId) {
     try {
-      const res = await api.post(`/posts/${postId}/like`)
+      const res = await api.put(`/posts/${postId}/like`)
       return res.data
     } catch (err) {
       throw new Error(err.response?.data?.message || 'Failed to like post')
@@ -49,5 +49,14 @@ export const postService = {
   } catch (err) {
     throw new Error(err.response?.data?.message || 'Failed to fetch user posts')
   }
+},
+async getComments(postId) {
+  const res = await api.get(`/posts/${postId}/comments`)
+  return res.data
+},
+
+async addComment(postId, text) {
+  const res = await api.post(`/posts/${postId}/comment`, { text })
+  return res.data
 }
 }

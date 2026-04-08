@@ -2,7 +2,7 @@ import Post from "../models/Post.js";
 import User from "../models/User.js";
 
 // 📝 Create Post
-export const createPost = async (req, res) => {
+export const createPost = async (req, res, next) => {
   try {
     const { content, codeSnippet, tags } = req.body;
 
@@ -37,15 +37,15 @@ export const createPost = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
+
 // 📄 Get Feed (SMART FEED 🔥)
 export const getPosts = async (req, res, next) => {
   try {
     let posts = [];
 
-    // 🔐 If logged in → personalized feed
     if (req.user?._id) {
       const user = await User.findById(req.user._id);
 
@@ -53,35 +53,59 @@ export const getPosts = async (req, res, next) => {
 
       // 🔥 1. Following posts
       const followingPosts = await Post.find({
-        user: { $in: followingIds },
+        author: { $in: followingIds },
       })
         .sort({ createdAt: -1 })
-        .populate("user", "name username avatar");
+        .populate("author", "name username avatar role verified");
 
       // 🔥 2. Other posts
       const otherPosts = await Post.find({
-        user: { $nin: followingIds },
+        author: { $nin: followingIds },
       })
         .sort({ createdAt: -1 })
-        .populate("user", "name username avatar");
+        .populate("author", "name username avatar role verified");
 
       posts = [...followingPosts, ...otherPosts];
     } else {
-      // 🌍 Public feed (not logged in)
+      // 🌍 Public feed
       posts = await Post.find()
         .sort({ createdAt: -1 })
-        .populate("user", "name username avatar");
+        .populate("author", "name username avatar role verified");
     }
+
+    // 🔥 Normalize response (VERY IMPORTANT)
+    const formattedPosts = posts.map((post) => ({
+      id: post._id,
+      content: post.content,
+      codeSnippet: post.codeSnippet,
+      tags: post.tags,
+      likes: post.likes.length,
+      comments: post.comments?.length || 0,
+      createdAt: post.createdAt,
+      liked: post.likes.some(
+        (id) => id.toString() === req.user?._id?.toString()
+      ),
+      bookmarked: false,
+
+      author: {
+        name: post.author.name,
+        username: post.author.username,
+        avatar: post.author.avatar,
+        role: post.author.role,
+        verified: post.author.verified,
+      },
+    }));
 
     res.status(200).json({
       success: true,
-      count: posts.length,
-      posts,
+      count: formattedPosts.length,
+      posts: formattedPosts,
     });
   } catch (err) {
     next(err);
   }
 };
+
 // ❤️ Like / Unlike Post
 export const toggleLike = async (req, res, next) => {
   try {
@@ -94,16 +118,18 @@ export const toggleLike = async (req, res, next) => {
 
     const userId = req.user._id.toString();
 
-    const alreadyLiked = post.likes.includes(userId);
+    const alreadyLiked = post.likes.some(
+      (id) => id.toString() === userId
+    );
 
     if (alreadyLiked) {
-      // 🔥 Unlike
+      // ❌ Unlike
       post.likes = post.likes.filter(
         (id) => id.toString() !== userId
       );
     } else {
-      // 🔥 Like
-      post.likes.push(userId);
+      // ✅ Like
+      post.likes.push(req.user._id);
     }
 
     await post.save();
@@ -112,6 +138,91 @@ export const toggleLike = async (req, res, next) => {
       success: true,
       likes: post.likes.length,
       liked: !alreadyLiked,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+export const addComment = async (req, res, next) => {
+  try {
+    const { text } = req.body;
+
+    const post = await Post.findById(req.params.id);
+
+    if (!post) {
+      res.status(404);
+      throw new Error("Post not found");
+    }
+
+    const comment = {
+      user: req.user._id,
+      text,
+    };
+
+    post.comments.push(comment);
+    await post.save();
+
+    res.status(201).json({
+      success: true,
+      comments: post.comments.length,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+export const getComments = async (req, res, next) => {
+  try {
+    const post = await Post.findById(req.params.id)
+      .populate("comments.user", "name username avatar");
+
+    if (!post) {
+      res.status(404);
+      throw new Error("Post not found");
+    }
+
+    res.status(200).json({
+      success: true,
+      comments: post.comments,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+export const getUserPosts = async (req, res, next) => {
+  try {
+    const user = await User.findOne({ username: req.params.username });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const posts = await Post.find({ author: user._id })
+      .sort({ createdAt: -1 })
+      .populate("author", "name username avatar");
+
+    const formattedPosts = posts.map((post) => ({
+      id: post._id,
+      content: post.content,
+      codeSnippet: post.codeSnippet,
+      tags: post.tags,
+      likes: post.likes.length,
+      comments: post.comments.length,
+      createdAt: post.createdAt,
+      liked: post.likes.some(
+        (id) => id.toString() === req.user?._id?.toString()
+      ),
+      bookmarked: false,
+
+      author: {
+        name: post.author.name,
+        username: post.author.username,
+        avatar: post.author.avatar,
+      },
+    }));
+
+    res.status(200).json({
+      success: true,
+      posts: formattedPosts,
     });
   } catch (err) {
     next(err);
