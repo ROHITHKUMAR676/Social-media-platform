@@ -30,5 +30,10 @@ export const userService = {
     } catch (err) {
       throw new Error(err.response?.data?.message || 'Follow failed')
     }
-  }
+  },
+  async getFollowStats(userId) {
+  const res = await api.get(`/users/${userId}/follow-stats`)
+  return res.data
+}
+  
 }

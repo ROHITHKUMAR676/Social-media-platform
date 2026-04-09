@@ -51,12 +51,32 @@ export const postService = {
   }
 },
 async getComments(postId) {
-  const res = await api.get(`/posts/${postId}/comments`)
-  return res.data
+  try {
+    const res = await api.get(`/posts/${postId}/comments`)
+
+    return {
+      comments: res.data.comments || []
+    }
+  } catch (err) {
+    throw new Error(err.response?.data?.message || 'Failed to fetch comments')
+  }
 },
 
 async addComment(postId, text) {
-  const res = await api.post(`/posts/${postId}/comment`, { text })
-  return res.data
+  try {
+    const res = await api.post(`/posts/${postId}/comment`, { text })
+
+    return {
+      comments: res.data.comments || []
+    }
+  } catch (err) {
+    throw new Error(err.response?.data?.message || 'Failed to add comment')
+  }
+},
+async addReply(postId, commentId, text) {
+  const res = await api.post(`/posts/${postId}/comment/${commentId}/reply`, { text })
+  return {
+    comments: res.data.comments || []
+  }
 }
 }

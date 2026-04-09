@@ -25,20 +25,18 @@ export default function Profile() {
   const [loading, setLoading] = useState(true)
   const [following, setFollowing] = useState(false)
   const [tab, setTab] = useState('posts')
-
+  const [followersCount, setFollowersCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
   const isOwnProfile = currentUser?.username === username
  const handleFollow = async () => {
   if (!profileUser?._id) return
 
   try {
     const res = await userService.toggleFollow(profileUser._id)
-    setFollowing(res.isFollowing)
 
-    // update followers count
-    setProfileUser(prev => ({
-      ...prev,
-      followers: res.followers
-    }))
+    setFollowing(res.isFollowing)
+    setFollowersCount(res.followersCount)
+
   } catch (err) {
     console.error(err)
   }
@@ -60,7 +58,9 @@ export default function Profile() {
       }
       setProfileUser(userData)
       if (!isOwnProfile && currentUser) {
-  const isFollowingUser = userData.followers?.includes(currentUser._id)
+  const isFollowingUser = userData.followers?.some(
+  id => id.toString() === currentUser._id.toString()
+)
   setFollowing(isFollowingUser)
 }
      try {
@@ -81,7 +81,15 @@ export default function Profile() {
 
   fetchProfile()
 }, [username, isOwnProfile])
+useEffect(() => {
+  const fetchStats = async () => {
+    const res = await userService.getFollowStats(profileUser._id)
+    setFollowersCount(res.followersCount)
+    setFollowingCount(res.followingCount)
+  }
 
+  if (profileUser?._id) fetchStats()
+}, [profileUser])
   if (loading) {
     return (
       <Layout>
@@ -208,13 +216,13 @@ export default function Profile() {
             <div className="flex items-center gap-6 mb-4 pb-4 border-b border-dark-border">
               <Link to="/followers" className="text-center group">
                 <p className="font-display font-bold text-white text-lg group-hover:text-brand-400 transition-colors">
-                  {formatNumber(profileUser.followers?.length || 0)}
+                  {formatNumber(followersCount)}
                 </p>
                 <p className="text-xs text-surface-600">Followers</p>
               </Link>
               <Link to="/following" className="text-center group">
                 <p className="font-display font-bold text-white text-lg group-hover:text-brand-400 transition-colors">
-                  {formatNumber(profileUser.following?.length || 0)}
+                  {formatNumber(followingCount)}
                 </p>
                 <p className="text-xs text-surface-600">Following</p>
               </Link>
@@ -263,7 +271,7 @@ export default function Profile() {
                 <p className="text-surface-500">No posts yet.</p>
               </div>
             ) : (
-              userPosts.map(post => <PostCard key={post.id} post={post} />)
+              userPosts.map(post => <PostCard key={post.id||post._id} post={post} />)
             )}
           </div>
         )}

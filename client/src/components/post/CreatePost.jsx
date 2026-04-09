@@ -32,13 +32,21 @@ export default function CreatePost({ onPost }) {
   setIsPosting(true)
 
   try {
-    const newPost = await postService.createPost({
-      content,
-      codeSnippet: showCode ? code : '',
-      tags,
-    })
+    const res = await postService.createPost({
+  content,
+  codeSnippet: showCode ? code : '',
+  tags,
+})
 
-    onPost?.(newPost)
+// 🔥 normalize for UI
+const newPost = {
+  ...res,
+  id: res._id,              // fallback support
+  likes: res.likesCount || 0,
+  comments: res.comments || [],
+}
+
+onPost?.(newPost)
   } catch (err) {
     console.error(err)
   }

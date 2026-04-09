@@ -17,12 +17,15 @@ export default function PostCard({ post, onLike }) {
   const navigate = useNavigate()
   const [showLogin, setShowLogin] = useState(false)
   const [liked, setLiked] = useState(post.liked)
+  const [commentCount, setCommentCount] = useState(post.comments || 0)
   const [likeCount, setLikeCount] = useState(post.likes)
   const [bookmarked, setBookmarked] = useState(post.bookmarked)
   const [showComments, setShowComments] = useState(false)
   const [comment, setComment] = useState('')
   const [comments, setComments] = useState([])
   const [loadingComments, setLoadingComments] = useState(false)
+  const [replyText, setReplyText] = useState('')
+const [activeReply, setActiveReply] = useState(null)
   useEffect(() => {
   if (!showComments) return
 
@@ -32,17 +35,18 @@ export default function PostCard({ post, onLike }) {
     try {
       const res = await postService.getComments(post.id)
       setComments(res.comments || [])
+      setCommentCount(res.comments.length)
     } catch (err) {
       console.error(err)
-      // fallback to mock
-      setComments(MOCK_COMMENTS[post.id] || [])
+      setComments([])
     }
 
     setLoadingComments(false)
   }
 
   fetchComments()
-}, [showComments])
+}, [showComments, post.id])
+
   const requireAuth = (action) => {
     if (!isAuthenticated) {
       setShowLogin(true)
@@ -108,20 +112,23 @@ const handleSendComment = async (e) => {
   // 🔥 optimistic UI
   const tempComment = {
     id: Date.now(),
-    author: user,
+    author: currentUser,
     text,
     createdAt: new Date().toISOString(),
   }
 
   setComments(prev => [...prev, tempComment])
-
+  
   try {
-    await postService.addComment(post.id, text)
+    const res = await postService.addComment(post.id, text)
+
+    // 🔥 SYNC WITH BACKEND (IMPORTANT)
+    setComments(res.comments)
+    setCommentCount(prev => prev + 1)
   } catch (err) {
     console.error(err)
   }
 }
-
   const handleShare = () => {
     if (!requireAuth()) return
     navigator.clipboard?.writeText(window.location.origin + '/post/' + post.id)
@@ -156,6 +163,20 @@ const handleFollow = async () => {
   }
 
   setFollowLoading(false)
+}
+const handleReply = async (commentId) => {
+  if (!replyText.trim()) return
+
+  const text = replyText
+  setReplyText('')
+
+  try {
+    const res = await postService.addReply(post.id, commentId, text)
+    setComments(res.comments)
+    setActiveReply(null)
+  } catch (err) {
+    console.error(err)
+  }
 }
     return (
     <>
@@ -250,7 +271,7 @@ const handleFollow = async () => {
         {/* Stats */}
         <div className="px-5 pb-2 flex items-center gap-4 text-xs text-surface-600">
           <span>{formatNumber(likeCount)} likes</span>
-          <span>{formatNumber(comments.length)} comments</span>
+          <span>{formatNumber(commentCount)} comments</span>
         </div>
 
         {/* Actions */}
@@ -300,47 +321,119 @@ const handleFollow = async () => {
         </div>
 
         {/* Comments section */}
-        {showComments && (
-          <div className="border-t border-dark-border animate-slide-up">
-            {comments.length > 0 && (
-              <div className="px-5 py-3 space-y-4 max-h-72 overflow-y-auto">
-                {comments.map(c => (
-                  <div key={c.id} className="flex gap-3">
-                    <UserAvatar user={c.author} size="sm" />
-                    <div className="flex-1 bg-dark-bg rounded-xl p-3">
+{showComments && (
+  <div className="border-t border-dark-border animate-slide-up">
+
+    {comments.length > 0 && (
+      <div className="px-5 py-3 space-y-4 max-h-72 overflow-y-auto">
+
+        {comments.map(c => (
+          <div key={c._id || c.id} className="space-y-2">
+
+            {/* 🔹 MAIN COMMENT */}
+            <div className="flex gap-3">
+              <UserAvatar user={c.user} size="sm" />
+
+              <div className="flex-1 bg-dark-bg rounded-xl p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-semibold text-white">
+                    {c.user?.name}
+                  </span>
+                  <span className="text-xs text-surface-600">
+                    {formatRelativeTime(c.createdAt)}
+                  </span>
+                </div>
+
+                <p className="text-sm text-surface-300">{c.text}</p>
+
+                {/* 🔥 REPLY BUTTON */}
+                <button
+                  onClick={() => setActiveReply(c._id)}
+                  className="text-xs text-brand-400 mt-2 hover:underline"
+                >
+                  Reply
+                </button>
+              </div>
+            </div>
+
+            {/* 🔥 REPLIES */}
+            {c.replies?.length > 0 && (
+              <div className="ml-10 space-y-2">
+                {c.replies.map(r => (
+                  <div key={r._id} className="flex gap-3">
+                    <UserAvatar user={r.user} size="sm" />
+
+                    <div className="flex-1 bg-dark-bg rounded-xl p-2.5">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-semibold text-white">{c.author.name}</span>
-                        <span className="text-xs text-surface-600">{formatRelativeTime(c.createdAt)}</span>
+                        <span className="text-xs font-semibold text-white">
+                          {r.user?.name}
+                        </span>
+                        <span className="text-xs text-surface-600">
+                          {formatRelativeTime(r.createdAt)}
+                        </span>
                       </div>
-                      <p className="text-sm text-surface-300">{c.text}</p>
+
+                      <p className="text-sm text-surface-300">{r.text}</p>
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {isAuthenticated && (
-              <form onSubmit={handleSendComment} className="flex items-center gap-3 px-5 py-3 border-t border-dark-border">
-                <UserAvatar user={user} size="sm" />
-                <div className="flex-1 flex items-center gap-2">
-                  <input
-                    value={comment}
-                    onChange={e => setComment(e.target.value)}
-                    placeholder="Write a comment..."
-                    className="flex-1 bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-sm text-white placeholder-surface-600 focus:outline-none focus:ring-1 focus:ring-brand-500/50"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!comment.trim()}
-                    className="p-2 rounded-xl bg-brand-600 text-white disabled:opacity-40 hover:bg-brand-500 transition-all"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-                </div>
-              </form>
+            {/* 🔥 REPLY INPUT */}
+            {activeReply === c._id && (
+              <div className="ml-10 flex items-center gap-2 mt-2">
+                <input
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Write a reply..."
+                  className="flex-1 bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-sm text-white"
+                />
+
+                <button
+                  onClick={() => handleReply(c._id)}
+                  className="px-3 py-1.5 text-xs bg-brand-600 text-white rounded-lg"
+                >
+                  Reply
+                </button>
+              </div>
             )}
+
           </div>
-        )}
+        ))}
+
+      </div>
+    )}
+
+    {/* 🔥 ADD COMMENT */}
+    {isAuthenticated && (
+      <form
+        onSubmit={handleSendComment}
+        className="flex items-center gap-3 px-5 py-3 border-t border-dark-border"
+      >
+        <UserAvatar user={currentUser} size="sm" />
+
+        <div className="flex-1 flex items-center gap-2">
+          <input
+            value={comment}
+            onChange={e => setComment(e.target.value)}
+            placeholder="Write a comment..."
+            className="flex-1 bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-sm text-white"
+          />
+
+          <button
+            type="submit"
+            disabled={!comment.trim()}
+            className="p-2 rounded-xl bg-brand-600 text-white disabled:opacity-40"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
+      </form>
+    )}
+
+  </div>
+)}
       </article>
 
       <LoginPromptModal

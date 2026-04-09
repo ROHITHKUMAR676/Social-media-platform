@@ -8,7 +8,7 @@ import AppRoutes from './routes/AppRoutes'
 
 export default function App() {
   return (
-    <BrowserRouter>
+    
       <AuthProvider>
         <NotificationProvider>
           <ChatProvider>
@@ -18,6 +18,6 @@ export default function App() {
           </ChatProvider>
         </NotificationProvider>
       </AuthProvider>
-    </BrowserRouter>
+    
   )
 }

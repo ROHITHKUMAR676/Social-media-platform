@@ -115,7 +115,23 @@ export const getUserByUsername = async (req, res, next) => {
   }
 };
 
+// 👥 GET FOLLOW STATS
+export const getFollowStats = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id)
 
+    if (!user) {
+      return res.status(404).json({ message: "User not found" })
+    }
+
+    res.status(200).json({
+      followersCount: user.followers.length,
+      followingCount: user.following.length,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
 // 🔥 FOLLOW / UNFOLLOW USER
 export const toggleFollow = async (req, res, next) => {
   try {
@@ -146,7 +162,8 @@ export const toggleFollow = async (req, res, next) => {
       );
     } else {
       // ✅ FOLLOW (safe push)
-      if (!currentUser.following.includes(targetUserId)) {
+      if (!currentUser.following.includes(targetUserId)) 
+        {
         currentUser.following.push(targetUserId);
       }
 
@@ -159,11 +176,11 @@ export const toggleFollow = async (req, res, next) => {
     await targetUser.save();
 
     res.status(200).json({
-      success: true,
-      following: currentUser.following,
-      followers: targetUser.followers,
-      isFollowing: !isFollowing,
-    });
+  success: true,
+  isFollowing: !isFollowing,
+  followingCount: currentUser.following.length,
+  followersCount: targetUser.followers.length,
+});
   } catch (err) {
     next(err);
   }

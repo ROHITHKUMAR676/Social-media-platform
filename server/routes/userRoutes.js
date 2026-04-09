@@ -3,13 +3,14 @@ import {
   getProfile,
   createOrUpdateProfile,
   getUserByUsername,
-  toggleFollow
+  toggleFollow,getFollowStats
 } from "../controllers/userController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // 🔥 REQUIRED ROUTES
+router.get("/:id/follow-stats", getFollowStats)
 router.get("/me", protect, getProfile);
 router.put("/profile", protect, createOrUpdateProfile);
 

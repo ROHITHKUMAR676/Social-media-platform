@@ -102,7 +102,7 @@ export default function Home() {
         ) : (
           posts.map(post => {
   console.log("POST:", post)
-  return <PostCard key={post.id} post={post} />
+  return <PostCard key={post._id || post.id} post={post} />
 })
         )}
       </div>
