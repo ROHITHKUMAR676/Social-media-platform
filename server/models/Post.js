@@ -1,5 +1,10 @@
 import mongoose from "mongoose";
 
+<<<<<<< HEAD
+=======
+
+// 🔥 REPLY SCHEMA (LEVEL 1)
+>>>>>>> 2310d38 (doneee)
 const replySchema = new mongoose.Schema(
   {
     user: {
@@ -17,6 +22,11 @@ const replySchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+<<<<<<< HEAD
+=======
+
+// 🔥 COMMENT SCHEMA (LEVEL 2)
+>>>>>>> 2310d38 (doneee)
 const commentSchema = new mongoose.Schema(
   {
     user: {
@@ -30,12 +40,22 @@ const commentSchema = new mongoose.Schema(
       trim: true,
       maxlength: 300,
     },
+<<<<<<< HEAD
 
     // 🔥 NEW
     replies: [replySchema],
   },
   { timestamps: true }
 )
+=======
+    replies: [replySchema],
+  },
+  { timestamps: true }
+);
+
+
+// 🔥 POST SCHEMA (MAIN)
+>>>>>>> 2310d38 (doneee)
 const postSchema = new mongoose.Schema(
   {
     author: {
@@ -51,22 +71,10 @@ const postSchema = new mongoose.Schema(
       maxlength: 1000,
     },
 
-    codeSnippet: {
-      type: String,
-      default: "",
-    },
-
     image: {
       type: String,
       default: null,
     },
-
-    tags: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
 
     likes: [
       {
@@ -77,17 +85,16 @@ const postSchema = new mongoose.Schema(
 
     comments: [commentSchema],
 
-    bookmarks: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
+    likesCount: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );
 
-// 🔥 Index for fast feed
+
+// 🔥 INDEX
 postSchema.index({ createdAt: -1 });
 
 export default mongoose.model("Post", postSchema);

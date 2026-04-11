@@ -20,7 +20,7 @@ export default function Home() {
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('smart')
-
+  
  useEffect(() => {
   const fetchPosts = async () => {
     setLoading(true)

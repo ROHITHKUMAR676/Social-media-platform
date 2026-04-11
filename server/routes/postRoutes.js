@@ -11,6 +11,7 @@ import {
 
 import { protect, optionalProtect } from "../middleware/authMiddleware.js";
 
+// 🔥 FIRST define router
 const router = express.Router();
 
 // 📝 Create Post
@@ -18,6 +19,7 @@ router.post("/", protect, createPost);
 
 // 📄 Feed
 router.get("/", optionalProtect, getPosts);
+<<<<<<< HEAD
 router.get("/user/:username", optionalProtect, getUserPosts);
 // ❤️ Like / Unlike
 router.put("/:id/like", protect, toggleLike);
@@ -30,5 +32,22 @@ router.get("/:id/comments", optionalProtect, getComments);
 
 // 👤 Get Posts by Username (VERY IMPORTANT)
 
+=======
+
+// 👤 Get user posts
+router.get("/user/:username", optionalProtect, getUserPosts);
+>>>>>>> 2310d38 (doneee)
+
+// ❤️ Like
+router.put("/:id/like", protect, toggleLike);
+
+// 💬 Comment
+router.post("/:id/comment", protect, addComment);
+
+// 💬 Replies
+router.post("/:id/comment/:commentId/reply", protect, addReply);
+
+// 💬 Get comments
+router.get("/:id/comments", optionalProtect, getComments);
 
 export default router;

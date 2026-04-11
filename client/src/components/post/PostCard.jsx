@@ -12,6 +12,7 @@ import { postService } from '@/services/postService'
 import { formatRelativeTime, formatNumber } from '../../utils/helpers'
 import { MOCK_COMMENTS } from '@/data/mockData'
 import UserAvatar from '../common/UserAvatar'
+
 export default function PostCard({ post, onLike }) {
   const { isAuthenticated, user: currentUser, updateFollowing } = useAuth()
   const navigate = useNavigate()
@@ -23,6 +24,7 @@ export default function PostCard({ post, onLike }) {
   const [showComments, setShowComments] = useState(false)
   const [comment, setComment] = useState('')
   const [comments, setComments] = useState([])
+  const [commentCount, setCommentCount] = useState(post.comments || 0)
   const [loadingComments, setLoadingComments] = useState(false)
   const [replyText, setReplyText] = useState('')
 const [activeReply, setActiveReply] = useState(null)
@@ -46,7 +48,10 @@ const [activeReply, setActiveReply] = useState(null)
 
   fetchComments()
 }, [showComments, post.id])
+<<<<<<< HEAD
 
+=======
+>>>>>>> 2310d38 (doneee)
   const requireAuth = (action) => {
     if (!isAuthenticated) {
       setShowLogin(true)
@@ -101,7 +106,20 @@ const handleDoubleClick = () => {
     if (!requireAuth()) return
     setShowComments(p => !p)
   }
+  const handleReply = async (commentId) => {
+  if (!replyText.trim()) return
 
+  const text = replyText
+  setReplyText('')
+
+  try {
+    const res = await postService.addReply(post.id, commentId, text)
+    setComments(res.comments)
+    setActiveReply(null)
+  } catch (err) {
+    console.error(err)
+  }
+}
 const handleSendComment = async (e) => {
   e.preventDefault()
   if (!comment.trim()) return
@@ -117,14 +135,23 @@ const handleSendComment = async (e) => {
     createdAt: new Date().toISOString(),
   }
 
+<<<<<<< HEAD
   setComments(prev => [...prev, tempComment])
   
+=======
+setCommentCount(prev => prev + 1)
+
+>>>>>>> 2310d38 (doneee)
   try {
     const res = await postService.addComment(post.id, text)
 
     // 🔥 SYNC WITH BACKEND (IMPORTANT)
     setComments(res.comments)
+<<<<<<< HEAD
     setCommentCount(prev => prev + 1)
+=======
+
+>>>>>>> 2310d38 (doneee)
   } catch (err) {
     console.error(err)
   }
@@ -321,6 +348,10 @@ const handleReply = async (commentId) => {
         </div>
 
         {/* Comments section */}
+<<<<<<< HEAD
+=======
+        {/* Comments section */}
+>>>>>>> 2310d38 (doneee)
 {showComments && (
   <div className="border-t border-dark-border animate-slide-up">
 
