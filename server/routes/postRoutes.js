@@ -19,7 +19,7 @@ router.post("/", protect, createPost);
 
 // 📄 Feed
 router.get("/", optionalProtect, getPosts);
-<<<<<<< HEAD
+
 router.get("/user/:username", optionalProtect, getUserPosts);
 // ❤️ Like / Unlike
 router.put("/:id/like", protect, toggleLike);
