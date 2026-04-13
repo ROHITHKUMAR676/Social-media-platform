@@ -182,44 +182,7 @@ export const addComment = async (req, res, next) => {
   }
 };
 // 💬 ADD REPLY
-export const addReply = async (req, res, next) => {
-  try {
-    const { text } = req.body
-    const { id, commentId } = req.params
 
-    const post = await Post.findById(id)
-
-    if (!post) {
-      return res.status(404).json({ message: "Post not found" })
-    }
-
-    const comment = post.comments.id(commentId)
-
-    if (!comment) {
-      return res.status(404).json({ message: "Comment not found" })
-    }
-
-    comment.replies.push({
-      user: req.user._id,
-      text,
-    })
-
-    await post.save()
-
-    const populated = await post.populate([
-      { path: "comments.user", select: "name username avatar" },
-      { path: "comments.replies.user", select: "name username avatar" }
-    ])
-
-    res.status(201).json({
-      success: true,
-      comments: populated.comments,
-    })
-
-  } catch (err) {
-    next(err)
-  }
-}
 export const getComments = async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.id)

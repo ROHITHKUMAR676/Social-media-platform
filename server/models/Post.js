@@ -1,10 +1,5 @@
 import mongoose from "mongoose";
 
-<<<<<<< HEAD
-=======
-
-// 🔥 REPLY SCHEMA (LEVEL 1)
->>>>>>> 2310d38 (doneee)
 const replySchema = new mongoose.Schema(
   {
     user: {
@@ -21,12 +16,6 @@ const replySchema = new mongoose.Schema(
   },
   { timestamps: true }
 )
-
-<<<<<<< HEAD
-=======
-
-// 🔥 COMMENT SCHEMA (LEVEL 2)
->>>>>>> 2310d38 (doneee)
 const commentSchema = new mongoose.Schema(
   {
     user: {
@@ -40,14 +29,8 @@ const commentSchema = new mongoose.Schema(
       trim: true,
       maxlength: 300,
     },
-<<<<<<< HEAD
 
-    // 🔥 NEW
-    replies: [replySchema],
-  },
-  { timestamps: true }
-)
-=======
+    // 🔥 replies (threaded)
     replies: [replySchema],
   },
   { timestamps: true }
@@ -55,7 +38,6 @@ const commentSchema = new mongoose.Schema(
 
 
 // 🔥 POST SCHEMA (MAIN)
->>>>>>> 2310d38 (doneee)
 const postSchema = new mongoose.Schema(
   {
     author: {

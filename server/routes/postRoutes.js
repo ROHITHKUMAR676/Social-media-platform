@@ -32,11 +32,11 @@ router.get("/:id/comments", optionalProtect, getComments);
 
 // 👤 Get Posts by Username (VERY IMPORTANT)
 
-=======
+
 
 // 👤 Get user posts
 router.get("/user/:username", optionalProtect, getUserPosts);
->>>>>>> 2310d38 (doneee)
+
 
 // ❤️ Like
 router.put("/:id/like", protect, toggleLike);
