@@ -6,6 +6,7 @@ import {
   Briefcase, Code2
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useChat } from '../context/ChatContext'
 import Layout from '../components/layout/Layout'
 import PostCard from '../components/post/PostCard'
 import PostSkeleton from '../components/post/PostSkeleton'
@@ -17,26 +18,80 @@ import { format } from 'date-fns'
 import UserAvatar from '../components/common/UserAvatar'
 
 export default function Profile() {
+  
   const { username } = useParams()
-  const { user: currentUser, isAuthenticated } = useAuth()
+  const { user: currentUser, isAuthenticated, updateFollowing } = useAuth()
+  const { startConversation } = useChat()
   const navigate = useNavigate()
   const [profileUser, setProfileUser] = useState(null)
   const [userPosts, setUserPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [following, setFollowing] = useState(false)
+  const [followLoading, setFollowLoading] = useState(false)
   const [tab, setTab] = useState('posts')
   const [followersCount, setFollowersCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
   const isOwnProfile = currentUser?.username === username
- const handleFollow = async () => {
-  if (!profileUser?._id) return
+const canMessage = isAuthenticated && !isOwnProfile && following
+const handleFollow = async () => {
+  if (!isAuthenticated) {
+    navigate('/login')
+    return
+  }
+
+  if (!profileUser?._id || followLoading) return
+
+  const prevState = following
+  setFollowLoading(true)
+
+  // ⚡ Optimistic UI
+  setFollowing(!prevState)
+  setFollowersCount(prev =>
+    prevState ? prev - 1 : prev + 1
+  )
 
   try {
     const res = await userService.toggleFollow(profileUser._id)
 
+    // ✅ Sync with backend
     setFollowing(res.isFollowing)
     setFollowersCount(res.followersCount)
 
+    // 🔥 GLOBAL SYNC (VERY IMPORTANT)
+    updateFollowing(profileUser._id, res.isFollowing)
+
+  } catch (err) {
+    console.error(err)
+
+    // 🔁 Rollback
+    setFollowing(prevState)
+    setFollowersCount(prev =>
+      prevState ? prev + 1 : prev - 1
+    )
+  } finally {
+    setFollowLoading(false)
+  }
+}
+const handlePostFollowChange = ({ authorId, isFollowing, followersCount: nextFollowersCount }) => {
+  if (!profileUser?._id || profileUser._id.toString() !== authorId.toString()) return
+
+  setFollowing(isFollowing)
+
+  if (typeof nextFollowersCount === 'number') {
+    setFollowersCount(nextFollowersCount)
+  }
+}
+const handleMessage = async () => {
+  if (!isAuthenticated) {
+    navigate('/login')
+    return
+  }
+
+  if (!profileUser || !following) return
+
+  try {
+    await startConversation(profileUser)
+    navigate('/messages')
   } catch (err) {
     console.error(err)
   }
@@ -44,8 +99,6 @@ export default function Profile() {
  useEffect(() => {
   const fetchProfile = async () => {
     setLoading(true)
-    console.log("Current User:", currentUser)
-  console.log("URL Username:", username)
     try {
       let userData
 
@@ -58,10 +111,11 @@ export default function Profile() {
       }
       setProfileUser(userData)
       if (!isOwnProfile && currentUser) {
-  const isFollowingUser = userData.followers?.some(
-  id => id.toString() === currentUser._id.toString()
-)
-  setFollowing(isFollowingUser)
+  setFollowing(
+    currentUser.following?.some(
+      id => id.toString() === userData._id.toString()
+    )
+  )
 }
      try {
   const postRes = await postService.getUserPosts(username)
@@ -80,7 +134,16 @@ export default function Profile() {
   }
 
   fetchProfile()
-}, [username, isOwnProfile])
+}, [username, isOwnProfile, currentUser])
+useEffect(() => {
+  if (!profileUser?._id || !currentUser || isOwnProfile) return
+
+  const nextFollowing = currentUser.following?.some(
+    id => id.toString() === profileUser._id.toString()
+  )
+
+  setFollowing(Boolean(nextFollowing))
+}, [currentUser, profileUser, isOwnProfile])
 useEffect(() => {
   const fetchStats = async () => {
     const res = await userService.getFollowStats(profileUser._id)
@@ -151,16 +214,25 @@ useEffect(() => {
                 ) : isAuthenticated ? (
                   <>
                     <button
-                      onClick={() => navigate('/messages')}
-                      className="btn-secondary text-xs px-3 py-1.5 gap-1.5"
+                      onClick={handleMessage}
+                      disabled={!canMessage}
+                      title={canMessage ? 'Message this user' : 'Follow this user to send messages'}
+                      className={`text-xs px-3 py-1.5 gap-1.5 ${
+                        canMessage
+                          ? 'btn-secondary'
+                          : 'btn-secondary opacity-50 cursor-not-allowed'
+                      }`}
                     >
-                      <MessageSquare className="w-3.5 h-3.5" /> Message
+                      <MessageSquare className="w-3.5 h-3.5" /> {canMessage ? 'Message' : 'Follow to message'}
                     </button>
                     <button
                       onClick={handleFollow}
+                      disabled={followLoading}
                       className={following ? 'btn-secondary text-xs px-3 py-1.5 gap-1.5' : 'btn-primary text-xs px-3 py-1.5 gap-1.5'}
                     >
-                      {following ? (
+                      {followLoading ? (
+                        '...'
+                      ) : following ? (
                         <><UserCheck className="w-3.5 h-3.5" /> Following</>
                       ) : (
                         <><UserPlus className="w-3.5 h-3.5" /> Follow</>
@@ -271,7 +343,13 @@ useEffect(() => {
                 <p className="text-surface-500">No posts yet.</p>
               </div>
             ) : (
-              userPosts.map(post => <PostCard key={post.id||post._id} post={post} />)
+              userPosts.map(post => (
+                <PostCard
+                  key={post.id||post._id}
+                  post={post}
+                  onFollowChange={handlePostFollowChange}
+                />
+              ))
             )}
           </div>
         )}

@@ -1,6 +1,18 @@
 import api from './api'
 
 export const userService = {
+  async searchUsers(query) {
+    try {
+      const res = await api.get('/users/search', {
+        params: { q: query },
+      })
+      return {
+        users: res.data?.users || [],
+      }
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'Failed to search developers')
+    }
+  },
 
   // 👤 Get my profile
   async getMe() {

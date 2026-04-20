@@ -43,7 +43,11 @@ export default function ChatSidebar({ onSelectConversation }) {
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-center p-4">
-            <p className="text-surface-500 text-sm">No conversations found</p>
+            <p className="text-surface-500 text-sm">
+              {search
+                ? 'No conversations found'
+                : 'Follow developers to start messaging'}
+            </p>
           </div>
         ) : (
           filtered.map(conv => (
@@ -73,15 +77,17 @@ export default function ChatSidebar({ onSelectConversation }) {
                   }`}>
                     {conv.participant.name}
                   </p>
-                  <span className="text-xs text-surface-600 flex-shrink-0 ml-2">
-                    {formatRelativeTime(conv.lastMessageTime).replace(' ago', '')}
-                  </span>
+                  {conv.lastMessageTime && (
+                    <span className="text-xs text-surface-600 flex-shrink-0 ml-2">
+                      {formatRelativeTime(conv.lastMessageTime).replace(' ago', '')}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center justify-between">
                   <p className={`text-xs truncate ${
                     conv.unread > 0 ? 'text-surface-300 font-medium' : 'text-surface-500'
                   }`}>
-                    {truncate(conv.lastMessage, 40)}
+                    {truncate(conv.lastMessage || 'No messages yet', 40)}
                   </p>
                   {conv.unread > 0 && (
                     <span className="ml-2 flex-shrink-0 w-5 h-5 rounded-full bg-brand-500 text-white text-[10px] font-bold flex items-center justify-center">

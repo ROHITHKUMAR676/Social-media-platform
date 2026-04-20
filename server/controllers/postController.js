@@ -28,13 +28,14 @@ export const createPost = async (req, res, next) => {
       createdAt: populated.createdAt,
       liked: false,
       bookmarked: false,
-      author: {
-        name: populated.author.name,
-        username: populated.author.username,
-        avatar: populated.author.avatar,
-        role: populated.author.role,
-        verified: populated.author.verified,
-      },
+     author: {
+  _id: post.author._id,   // 🔥 ADD THIS LINE
+  name: post.author.name,
+  username: post.author.username,
+  avatar: post.author.avatar,
+  role: post.author.role,
+  verified: post.author.verified,
+},
     });
   } catch (err) {
     next(err);
@@ -88,6 +89,7 @@ export const getPosts = async (req, res, next) => {
       bookmarked: false,
 
       author: {
+        _id: post.author._id, 
         name: post.author.name,
         username: post.author.username,
         avatar: post.author.avatar,
@@ -227,10 +229,11 @@ export const getUserPosts = async (req, res, next) => {
       bookmarked: false,
 
       author: {
-        name: post.author.name,
-        username: post.author.username,
-        avatar: post.author.avatar,
-      },
+  _id: post.author._id,   // 🔥 ADD THIS
+  name: post.author.name,
+  username: post.author.username,
+  avatar: post.author.avatar,
+},
     }));
 
     res.status(200).json({

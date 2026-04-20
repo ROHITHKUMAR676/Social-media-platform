@@ -3,6 +3,21 @@ import { authService } from '../services/authService'
 
 const AuthContext = createContext(null)
 
+const safeParseStoredUser = () => {
+  const stored = localStorage.getItem('dc_user')
+
+  if (!stored) return null
+
+  try {
+    return JSON.parse(stored)
+  } catch (err) {
+    console.error('Failed to parse stored user', err)
+    localStorage.removeItem('dc_user')
+    localStorage.removeItem('dc_token')
+    return null
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -12,15 +27,14 @@ export function AuthProvider({ children }) {
 
   // 🔁 Restore session
   useEffect(() => {
-    const stored = localStorage.getItem('dc_user')
+    const parsed = safeParseStoredUser()
     const token = localStorage.getItem('dc_token')
 
-    if (stored && token) {
-      const parsed = JSON.parse(stored)
+    if (parsed) {
       setUser(parsed)
-      setIsAuthenticated(true)
+      setIsAuthenticated(Boolean(token))
       setProfileCompleted(parsed.profileCompleted || false)
-      setOtpVerified(true)
+      setOtpVerified(Boolean(token))
     }
 
     setIsLoading(false)
@@ -28,7 +42,6 @@ export function AuthProvider({ children }) {
 
   // 🔐 LOGIN
   const login = useCallback(async (email, password) => {
-    setIsLoading(true)
     try {
       const res = await authService.login(email, password)
 
@@ -43,14 +56,11 @@ export function AuthProvider({ children }) {
       return { success: true, user: res.user }
     } catch (err) {
       return { success: false, error: err.message }
-    } finally {
-      setIsLoading(false)
     }
   }, [])
 
   // 📝 REGISTER
   const register = useCallback(async (data) => {
-    setIsLoading(true)
     try {
       await authService.register(data)
 
@@ -69,15 +79,13 @@ export function AuthProvider({ children }) {
       return { success: true }
     } catch (err) {
       return { success: false, error: err.message }
-    } finally {
-      setIsLoading(false)
     }
   }, [])
 
   // 🔢 VERIFY OTP
   const verifyOtp = useCallback(async (otp) => {
     try {
-      const storedUser = JSON.parse(localStorage.getItem('dc_user'))
+      const storedUser = safeParseStoredUser()
       const email = user?.email || storedUser?.email
 
       if (!email) {
@@ -126,8 +134,6 @@ export function AuthProvider({ children }) {
 
   // 👤 COMPLETE PROFILE
   const completeProfile = useCallback(async (profileData) => {
-    setIsLoading(true)
-
     try {
       const res = await authService.updateProfile(profileData)
 
@@ -145,36 +151,38 @@ export function AuthProvider({ children }) {
 
     } catch (err) {
       return { success: false, error: err.message }
-    } finally {
-      setIsLoading(false)
     }
   }, [])
 
   // 🔥 FOLLOW GLOBAL SYNC (FIXED POSITION)
   const updateFollowing = useCallback((targetUserId, isFollowing) => {
-    setUser(prev => {
-      if (!prev) return prev
+  setUser(prev => {
+    if (!prev) return prev
 
-      let updatedFollowing = prev.following || []
+    const targetId = targetUserId.toString()
 
-      if (isFollowing) {
-        updatedFollowing = [...updatedFollowing, targetUserId]
-      } else {
-        updatedFollowing = updatedFollowing.filter(
-          id => id.toString() !== targetUserId.toString()
-        )
+    let updatedFollowing = (prev.following || []).map(id => id.toString())
+
+    if (isFollowing) {
+      // ✅ Prevent duplicates
+      if (!updatedFollowing.includes(targetId)) {
+        updatedFollowing.push(targetId)
       }
+    } else {
+      updatedFollowing = updatedFollowing.filter(id => id !== targetId)
+    }
 
-      const updatedUser = {
-        ...prev,
-        following: updatedFollowing
-      }
+    const updatedUser = {
+      ...prev,
+      following: updatedFollowing
+    }
 
-      localStorage.setItem('dc_user', JSON.stringify(updatedUser))
+    // 🔥 Persist
+    localStorage.setItem('dc_user', JSON.stringify(updatedUser))
 
-      return updatedUser
-    })
-  }, [])
+    return updatedUser
+  })
+}, [])
 
   return (
     <AuthContext.Provider

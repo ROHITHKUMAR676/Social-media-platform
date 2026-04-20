@@ -21,21 +21,36 @@ export default function Register() {
   const [errors, setErrors] = useState({})
 
   const validate = () => {
-    const e = {}
-    if (!form.name.trim()) e.name = 'Name is required'
-    if (!form.username.trim()) e.username = 'Username is required'
-    else if (!/^[a-z0-9_]+$/.test(form.username)) e.username = 'Lowercase, numbers & underscores only'
-    if (!form.email.includes('@')) e.email = 'Valid email required'
-    if (form.password.length < 8) e.password = 'At least 8 characters'
-    return e
+    const nextErrors = {}
+
+    if (!form.name.trim()) nextErrors.name = 'Name is required'
+    if (!form.username.trim()) {
+      nextErrors.username = 'Username is required'
+    } else if (!/^[a-z0-9_]+$/.test(form.username)) {
+      nextErrors.username = 'Lowercase, numbers & underscores only'
+    }
+
+    if (!form.email.trim()) {
+      nextErrors.email = 'Email is required'
+    } else if (!/^\S+@\S+\.\S+$/.test(form.email)) {
+      nextErrors.email = 'Enter a valid email address'
+    }
+
+    if (!form.password) {
+      nextErrors.password = 'Password is required'
+    } else if (form.password.length < 8) {
+      nextErrors.password = 'At least 8 characters'
+    }
+
+    return nextErrors
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    const errs = validate()
-    if (Object.keys(errs).length) {
-      setErrors(errs)
+    const nextErrors = validate()
+    if (Object.keys(nextErrors).length) {
+      setErrors(nextErrors)
       return
     }
 
@@ -48,32 +63,37 @@ export default function Register() {
 
     if (result && result.success) {
       navigate('/verify-otp')
-    } else {
-      const msg = result?.error || 'Registration failed'
+      return
+    }
 
-      // ✅ ONLY LOGIC (NO UI CHANGE)
-      if (msg.toLowerCase().includes('email')) {
-        setErrors({ email: msg })
-      } else if (msg.toLowerCase().includes('username')) {
-        setErrors({ username: msg })
-      } else {
-        setErrors({ global: msg })
-      }
+    const msg = result?.error || 'Registration failed'
+    const lowerMsg = msg.toLowerCase()
+
+    if (lowerMsg.includes('email')) {
+      setErrors({ email: msg })
+    } else if (lowerMsg.includes('username')) {
+      setErrors({ username: msg })
+    } else if (lowerMsg.includes('password')) {
+      setErrors({ password: msg })
+    } else {
+      setErrors({ global: msg })
     }
   }
 
   const set = (key) => (e) => {
-    const val = key === 'username'
+    const value = key === 'username'
       ? e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')
       : e.target.value
 
-    setForm(p => ({ ...p, [key]: val }))
-    if (errors[key]) setErrors(p => ({ ...p, [key]: undefined }))
+    setForm((prev) => ({ ...prev, [key]: value }))
+
+    if (errors[key] || errors.global) {
+      setErrors((prev) => ({ ...prev, [key]: undefined, global: undefined }))
+    }
   }
 
   return (
     <div className="min-h-screen bg-dark-bg flex">
-      {/* Left panel */}
       <div className="hidden lg:flex lg:w-2/5 bg-gradient-to-br from-brand-950 via-dark-card to-dark-bg relative overflow-hidden flex-col justify-between p-12">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-1/3 left-1/4 w-72 h-72 rounded-full bg-brand-500 blur-3xl" />
@@ -86,8 +106,10 @@ export default function Register() {
             <span className="font-display font-bold text-white text-xl">DevConnect</span>
           </div>
           <h2 className="font-display font-bold text-white text-3xl leading-tight mb-6">
-            Start your<br />
-            <span className="gradient-text">dev journey</span><br />
+            Start your
+            <br />
+            <span className="gradient-text">dev journey</span>
+            <br />
             today.
           </h2>
           <div className="space-y-3">
@@ -103,7 +125,7 @@ export default function Register() {
         </div>
         <div className="relative">
           <div className="flex -space-x-2 mb-3">
-            {['arjun', 'priya', 'rahul', 'sneha', 'karan'].map(seed => (
+            {['arjun', 'priya', 'rahul', 'sneha', 'karan'].map((seed) => (
               <img
                 key={seed}
                 src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`}
@@ -118,7 +140,6 @@ export default function Register() {
         </div>
       </div>
 
-      {/* Form */}
       <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
         <div className="w-full max-w-sm animate-fade-in py-8">
           <div className="flex items-center gap-2 mb-8 lg:hidden">
@@ -137,14 +158,13 @@ export default function Register() {
             </div>
           )}
 
-          {/* 🔥 SOCIAL LOGIN (unchanged) */}
           <div className="space-y-3 mb-4">
-            <button type="button" onClick={() => console.log("Google login (coming soon)")} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dark-border bg-dark-card text-surface-300 hover:bg-dark-hover transition-all text-sm">
+            <button type="button" onClick={() => console.log('Google login (coming soon)')} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dark-border bg-dark-card text-surface-300 hover:bg-dark-hover transition-all text-sm">
               <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="google" className="w-4 h-4" />
               Continue with Google
             </button>
 
-            <button type="button" onClick={() => console.log("GitHub login (coming soon)")} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dark-border bg-dark-card text-surface-300 hover:bg-dark-hover transition-all text-sm">
+            <button type="button" onClick={() => console.log('GitHub login (coming soon)')} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dark-border bg-dark-card text-surface-300 hover:bg-dark-hover transition-all text-sm">
               <img src="https://www.svgrepo.com/show/512317/github-142.svg" alt="github" className="w-4 h-4 invert" />
               Continue with GitHub
             </button>
@@ -160,8 +180,6 @@ export default function Register() {
             <Input label="Full Name" icon={User} value={form.name} onChange={set('name')} placeholder="Arjun Sharma" error={errors.name} />
             <Input label="Username" icon={AtSign} value={form.username} onChange={set('username')} placeholder="arjunsharma" error={errors.username} />
             <Input label="Email" type="email" icon={Mail} value={form.email} onChange={set('email')} placeholder="you@example.com" error={errors.email} />
-
-            {/* 🔥 ONLY LOGIC FIX FOR EYE */}
             <Input
               label="Password"
               type={showPass ? 'text' : 'password'}
@@ -174,8 +192,15 @@ export default function Register() {
               autoComplete="new-password"
             />
 
-            {/* 👇 invisible click handler fix */}
-            <div onClick={() => setShowPass(p => !p)} style={{ position: 'relative', top: '-42px', left: '90%', width: '24px', height: '24px', cursor: 'pointer' }} />
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowPass((prev) => !prev)}
+                className="text-xs text-surface-500 hover:text-surface-300 transition-colors"
+              >
+                {showPass ? 'Hide password' : 'Show password'}
+              </button>
+            </div>
 
             <Button type="submit" loading={loading} className="w-full justify-center py-3 mt-2">
               Create account <ArrowRight className="w-4 h-4" />

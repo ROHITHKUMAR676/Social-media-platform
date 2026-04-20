@@ -20,16 +20,17 @@ import NotFound      from '../pages/NotFound'
 import { FullPageLoader } from '../components/common/Loader'
 
 export default function AppRoutes() {
-  const { isLoading } = useAuth()
+  const { isLoading, isAuthenticated, otpVerified, profileCompleted } = useAuth()
   if (isLoading) return <FullPageLoader />
-  const { isAuthenticated, otpVerified, profileCompleted } = useAuth()
-  if (isAuthenticated && !otpVerified) {
-  return <VerifyOtp />
-}
 
-if (isAuthenticated && otpVerified && !profileCompleted) {
-  return <CreateProfile />
-}
+  if (isAuthenticated && !otpVerified) {
+    return <VerifyOtp />
+  }
+
+  if (isAuthenticated && otpVerified && !profileCompleted) {
+    return <CreateProfile />
+  }
+
   return (
     <Routes>
       {/* ── Fully public ───────────────────────────────────────── */}

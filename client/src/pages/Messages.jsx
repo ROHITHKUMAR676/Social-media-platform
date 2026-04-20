@@ -7,9 +7,9 @@ import ChatSidebar from '../components/chat/ChatSidebar'
 import ChatWindow from '../components/chat/ChatWindow'
 
 export default function Messages() {
-  const { setActiveConversation } = useChat()
+  const { activeConversation, setActiveConversation } = useChat()
   // 'sidebar' shows conversation list on mobile, 'chat' shows the chat window
-  const [mobileView, setMobileView] = useState('sidebar')
+  const [mobileView, setMobileView] = useState(activeConversation ? 'chat' : 'sidebar')
 
   const handleSelectConversation = (conv) => {
     setActiveConversation(conv)

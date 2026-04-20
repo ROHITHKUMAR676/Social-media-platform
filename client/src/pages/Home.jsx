@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Sparkles, TrendingUp, Globe } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import RightPanel from '../components/layout/RightPanel'
@@ -7,7 +7,7 @@ import CreatePost from '../components/post/CreatePost'
 import PostSkeleton from '../components/post/PostSkeleton'
 import { useAuth } from '../context/AuthContext'
 import { postService } from '@/services/postService'
-import { MOCK_POSTS } from '@/data/mockData' // keep fallback
+import { MOCK_POSTS } from '@/data/mockData'
 
 const TABS = [
   { id: 'smart', label: 'For You', icon: Sparkles },
@@ -20,43 +20,41 @@ export default function Home() {
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('smart')
-  
- useEffect(() => {
-  const fetchPosts = async () => {
-    setLoading(true)
-    try {
-      const data = await postService.getFeed()
 
-      if (Array.isArray(data) && data.length > 0 && data[0].id !== 'p1') {
-  setPosts(data)
-} else {
-        // 🔥 fallback when DB empty
+  useEffect(() => {
+    const fetchPosts = async () => {
+      setLoading(true)
+      try {
+        const data = await postService.getFeed()
+
+        if (Array.isArray(data) && data.length > 0 && data[0].id !== 'p1') {
+          setPosts(data)
+        } else {
+          const sorted = [...MOCK_POSTS].sort((a, b) => {
+            if (tab === 'trending') return b.likes - a.likes
+            return new Date(b.createdAt) - new Date(a.createdAt)
+          })
+          setPosts(sorted)
+        }
+      } catch {
         const sorted = [...MOCK_POSTS].sort((a, b) => {
           if (tab === 'trending') return b.likes - a.likes
           return new Date(b.createdAt) - new Date(a.createdAt)
         })
         setPosts(sorted)
       }
-    } catch {
-      // fallback on error
-      const sorted = [...MOCK_POSTS].sort((a, b) => {
-        if (tab === 'trending') return b.likes - a.likes
-        return new Date(b.createdAt) - new Date(a.createdAt)
-      })
-      setPosts(sorted)
+      setLoading(false)
     }
-    setLoading(false)
-  }
 
-  fetchPosts()
-}, [tab])
+    fetchPosts()
+  }, [tab])
+
   const handleNewPost = (post) => {
-    setPosts(prev => [post, ...prev])
+    setPosts((prev) => [post, ...prev])
   }
 
   return (
     <Layout rightPanel={<RightPanel />}>
-      {/* Tab bar */}
       <div className="flex items-center gap-1 p-1 bg-dark-card border border-dark-border rounded-2xl mb-5">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
@@ -74,14 +72,12 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Create post */}
       {isAuthenticated && user?.profileCompleted && (
         <div className="mb-5">
           <CreatePost onPost={handleNewPost} />
         </div>
       )}
 
-      {/* Guest banner */}
       {!isAuthenticated && (
         <div className="mb-5 p-4 bg-gradient-to-r from-brand-950 to-dark-card border border-brand-900/30 rounded-2xl">
           <h3 className="font-display font-bold text-white mb-1">Join the conversation 🚀</h3>
@@ -93,17 +89,13 @@ export default function Home() {
         </div>
       )}
 
-      {/* Feed */}
       <div className="space-y-4">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => <PostSkeleton key={i} />)
         ) : posts.length === 0 ? (
           <EmptyFeed />
         ) : (
-          posts.map(post => {
-  console.log("POST:", post)
-  return <PostCard key={post._id || post.id} post={post} />
-})
+          posts.map((post) => <PostCard key={post._id || post.id} post={post} />)
         )}
       </div>
     </Layout>

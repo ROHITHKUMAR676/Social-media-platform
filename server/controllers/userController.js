@@ -138,6 +138,7 @@ export const toggleFollow = async (req, res, next) => {
     const targetUserId = req.params.id;
     const currentUserId = req.user._id;
 
+    // ❌ Prevent self-follow
     if (targetUserId === currentUserId.toString()) {
       return res.status(400).json({ message: "Cannot follow yourself" });
     }
@@ -149,7 +150,10 @@ export const toggleFollow = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const isFollowing = currentUser.following.includes(targetUserId);
+    // ✅ FIX: Proper ObjectId comparison
+    const isFollowing = currentUser.following.some(
+      (id) => id.toString() === targetUserId
+    );
 
     if (isFollowing) {
       // ❌ UNFOLLOW
@@ -161,26 +165,58 @@ export const toggleFollow = async (req, res, next) => {
         (id) => id.toString() !== currentUserId.toString()
       );
     } else {
-      // ✅ FOLLOW (safe push)
-      if (!currentUser.following.includes(targetUserId)) 
-        {
-        currentUser.following.push(targetUserId);
-      }
-
-      if (!targetUser.followers.includes(currentUserId)) {
-        targetUser.followers.push(currentUserId);
-      }
+      // ✅ FOLLOW
+      currentUser.following.push(targetUser._id);
+      targetUser.followers.push(currentUser._id);
     }
 
     await currentUser.save();
     await targetUser.save();
 
     res.status(200).json({
-  success: true,
-  isFollowing: !isFollowing,
-  followingCount: currentUser.following.length,
-  followersCount: targetUser.followers.length,
-});
+      success: true,
+      isFollowing: !isFollowing,
+      followingCount: currentUser.following.length,
+      followersCount: targetUser.followers.length,
+      targetUserId,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const searchUsers = async (req, res, next) => {
+  try {
+    const query = req.query.q?.trim();
+
+    if (!query) {
+      return res.status(200).json({
+        success: true,
+        users: [],
+      });
+    }
+
+    const searchRegex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const currentUserId = req.user?._id?.toString();
+
+    const users = await User.find({
+      $or: [
+        { name: searchRegex },
+        { username: searchRegex },
+        { role: searchRegex },
+        { skills: { $elemMatch: { $regex: searchRegex } } },
+      ],
+      ...(currentUserId ? { _id: { $ne: req.user._id } } : {}),
+      profileCompleted: true,
+    })
+      .select("-password")
+      .limit(10)
+      .sort({ verified: -1, followers: -1, createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      users,
+    });
   } catch (err) {
     next(err);
   }

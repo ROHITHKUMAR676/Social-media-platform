@@ -4,49 +4,94 @@ import { Mail, Lock, Eye, EyeOff, Zap, ArrowRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import Input from '../components/common/Input'
 import Button from '../components/common/Button'
-import groupAvatar from "../assets/group-avatar.png";
+import groupAvatar from '../assets/group-avatar.png'
+
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const [form, setForm] = useState({ email: '', password: '' })
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [errors, setErrors] = useState({})
+
+  const validate = () => {
+    const nextErrors = {}
+    const email = form.email.trim()
+
+    if (!email) {
+      nextErrors.email = 'Email is required'
+    } else if (!/^\S+@\S+\.\S+$/.test(email)) {
+      nextErrors.email = 'Enter a valid email address'
+    }
+
+    if (!form.password) {
+      nextErrors.password = 'Password is required'
+    }
+
+    return nextErrors
+  }
+
+  const handleChange = (key) => (e) => {
+    const value = e.target.value
+    setForm((prev) => ({ ...prev, [key]: value }))
+
+    if (errors[key] || errors.global) {
+      setErrors((prev) => ({ ...prev, [key]: undefined, global: undefined }))
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!form.email || !form.password) {
-      setError('Please fill all fields.')
+    const nextErrors = validate()
+    if (Object.keys(nextErrors).length) {
+      setErrors(nextErrors)
       return
     }
 
     setLoading(true)
-    setError('')
+    setErrors({})
 
     const result = await login(form.email, form.password)
 
     setLoading(false)
 
-   if (result.success) {
-  if (result.user?.profileCompleted) {
-    navigate('/')
-  } else {
-    navigate('/create-profile')
-  }
-}
+    if (result.success) {
+      if (result.user?.profileCompleted) {
+        navigate('/')
+      } else {
+        navigate('/create-profile')
+      }
+      return
+    }
+
+    const msg = result.error || 'Login failed'
+    const lowerMsg = msg.toLowerCase()
+
+    if (lowerMsg.includes('password') || lowerMsg.includes('credentials')) {
+      setErrors({ password: msg })
+    } else if (lowerMsg.includes('email') || lowerMsg.includes('user')) {
+      setErrors({ email: msg })
+    } else {
+      setErrors({ global: msg })
+    }
   }
 
   const handleDemo = async () => {
     setLoading(true)
+    setErrors({})
     const result = await login('demo@devconnect.io', 'demo1234')
     setLoading(false)
-    if (result.success) navigate('/create-profile')
+
+    if (result.success) {
+      navigate('/create-profile')
+    } else {
+      setErrors({ global: result.error || 'Demo login failed' })
+    }
   }
 
   return (
     <div className="min-h-screen bg-dark-bg flex">
-      {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-950 via-dark-card to-dark-bg relative overflow-hidden flex-col justify-between p-12">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-20 w-64 h-64 rounded-full bg-brand-500 blur-3xl" />
@@ -60,8 +105,10 @@ export default function Login() {
             <span className="font-display font-bold text-white text-xl">DevConnect</span>
           </div>
           <h2 className="font-display font-bold text-white text-4xl leading-tight mb-4">
-            Where great<br />
-            <span className="gradient-text">developers</span><br />
+            Where great
+            <br />
+            <span className="gradient-text">developers</span>
+            <br />
             connect.
           </h2>
           <p className="text-surface-400 text-base leading-relaxed max-w-sm">
@@ -74,11 +121,11 @@ export default function Login() {
             "DevConnect is where we found our passion, our team, and my first 3 enterprise customers. It's the LinkedIn we actually wanted."
           </p>
           <div className="flex items-center gap-2.5">
-         <img 
-  src={groupAvatar}
-  className="w-8 h-8 rounded-full object-cover"
-  alt="group"
-/>
+            <img
+              src={groupAvatar}
+              className="w-8 h-8 rounded-full object-cover"
+              alt="group"
+            />
             <div>
               <p className="text-sm font-semibold text-white">Team XO</p>
               <p className="text-xs text-surface-500">Founders, DevConnect</p>
@@ -87,10 +134,8 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Right panel / Form */}
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm animate-fade-in">
-          {/* Mobile logo */}
           <div className="flex items-center gap-2 mb-8 lg:hidden">
             <div className="w-8 h-8 rounded-xl bg-brand-600 flex items-center justify-center">
               <Zap className="w-4 h-4 text-white" fill="currentColor" />
@@ -101,17 +146,16 @@ export default function Login() {
           <h1 className="font-display font-bold text-white text-2xl mb-1">Welcome back</h1>
           <p className="text-surface-500 text-sm mb-8">Sign in to your account</p>
 
-          {error && (
+          {errors.global && (
             <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-              {error}
+              {errors.global}
             </div>
           )}
 
-          {/* 🔥 SOCIAL LOGIN (UI ONLY) */}
           <div className="space-y-3 mb-4">
             <button
               type="button"
-              onClick={() => console.log("Google login (coming soon)")}
+              onClick={() => console.log('Google login (coming soon)')}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dark-border bg-dark-card text-surface-300 hover:bg-dark-hover transition-all text-sm"
             >
               <img
@@ -124,7 +168,7 @@ export default function Login() {
 
             <button
               type="button"
-              onClick={() => console.log("GitHub login (coming soon)")}
+              onClick={() => console.log('GitHub login (coming soon)')}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dark-border bg-dark-card text-surface-300 hover:bg-dark-hover transition-all text-sm"
             >
               <img
@@ -148,9 +192,10 @@ export default function Login() {
               type="email"
               icon={Mail}
               value={form.email}
-              onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+              onChange={handleChange('email')}
               placeholder="you@example.com"
               autoComplete="email"
+              error={errors.email}
             />
             <Input
               label="Password"
@@ -158,12 +203,20 @@ export default function Login() {
               icon={Lock}
               iconRight={showPass ? EyeOff : Eye}
               value={form.password}
-              onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+              onChange={handleChange('password')}
               placeholder="••••••••"
               autoComplete="current-password"
+              error={errors.password}
             />
 
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center">
+              <button
+                type="button"
+                onClick={() => setShowPass((prev) => !prev)}
+                className="text-xs text-surface-500 hover:text-surface-300 transition-colors"
+              >
+                {showPass ? 'Hide password' : 'Show password'}
+              </button>
               <button type="button" className="text-xs text-brand-400 hover:text-brand-300 transition-colors">
                 Forgot password?
               </button>
@@ -180,7 +233,13 @@ export default function Login() {
             <div className="flex-1 h-px bg-dark-border" />
           </div>
 
-         
+          <button
+            type="button"
+            onClick={handleDemo}
+            className="w-full text-sm text-surface-300 hover:text-white border border-dark-border rounded-xl py-2.5 hover:bg-dark-hover transition-all"
+          >
+            Try demo account
+          </button>
 
           <p className="text-center text-sm text-surface-500 mt-6">
             No account?{' '}

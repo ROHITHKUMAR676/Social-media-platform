@@ -13,7 +13,7 @@ import { formatRelativeTime, formatNumber } from '../../utils/helpers'
 import { MOCK_COMMENTS } from '@/data/mockData'
 import UserAvatar from '../common/UserAvatar'
 
-export default function PostCard({ post, onLike }) {
+export default function PostCard({ post, onLike, onFollowChange }) {
   const { isAuthenticated, user: currentUser, updateFollowing } = useAuth()
   const navigate = useNavigate()
   const [showLogin, setShowLogin] = useState(false)
@@ -24,11 +24,12 @@ export default function PostCard({ post, onLike }) {
   const [showComments, setShowComments] = useState(false)
   const [comment, setComment] = useState('')
   const [comments, setComments] = useState([])
-
+  const [showMenu, setShowMenu] = useState(false)
+  const authorId = post.author?._id || post.author?.id
   const [loadingComments, setLoadingComments] = useState(false)
   const [replyText, setReplyText] = useState('')
 const [activeReply, setActiveReply] = useState(null)
-  useEffect(() => {
+useEffect(() => {
   if (!showComments) return
 
   const fetchComments = async () => {
@@ -156,39 +157,47 @@ setCommentCount(prev => prev + 1)
 const [isFollowing, setIsFollowing] = useState(false)
 const [followLoading, setFollowLoading] = useState(false)
 useEffect(() => {
-  if (!currentUser || !post.author?._id) return
-
-  const isFollowingAuthor = currentUser.following?.some(
-    id => id.toString() === post.author._id.toString()
-  )
-
-  setIsFollowing(isFollowingAuthor)
-}, [currentUser, post.author])
-const handleFollow = async () => {
-  if (!post.author?._id) return
-  if (followLoading) return
-
-  setFollowLoading(true)
-
-  try {
-    const res = await userService.toggleFollow(post.author._id)
-
-    setIsFollowing(res.isFollowing)
-
-    // 🔥 GLOBAL SYNC
-    updateFollowing(post.author._id, res.isFollowing)
-
-  } catch (err) {
-    console.error(err)
+  if (!currentUser || !authorId) {
+    setIsFollowing(false)
+    return
   }
 
-  setFollowLoading(false)
-}
+  const isFollowingAuthor = currentUser.following?.some(
+    (id) => id.toString() === authorId.toString()
+  )
 
+  setIsFollowing(Boolean(isFollowingAuthor))
+}, [currentUser, authorId])
+const handleFollow = async () => {
+  if (!requireAuth()) return
+  if (!authorId || currentUser?._id === authorId || followLoading) return
+
+  const previousState = isFollowing
+  setFollowLoading(true)
+  setIsFollowing(!previousState)
+
+  try {
+    const response = await userService.toggleFollow(authorId)
+    const newState = Boolean(response?.isFollowing)
+
+    setIsFollowing(newState)
+    updateFollowing(authorId, newState)
+    onFollowChange?.({
+      authorId,
+      isFollowing: newState,
+      followersCount: response?.followersCount,
+      followingCount: response?.followingCount,
+    })
+  } catch (err) {
+    console.error(err)
+    setIsFollowing(previousState)
+  } finally {
+    setFollowLoading(false)
+  }
+}
     return (
     <>
       <article 
-       onDoubleClick={handleDoubleClick}
       className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden hover:border-surface-700/60 transition-all duration-200 animate-fade-in">
         {/* Header */}
         <div className="flex items-start justify-between px-5 pt-5 pb-3">
@@ -219,31 +228,56 @@ const handleFollow = async () => {
   </div>
 
   {/* 🔥 RIGHT SIDE (FOLLOW + MENU) */}
-  <div className="flex items-center gap-2">
-    {/* FOLLOW BUTTON */}
-    {currentUser?._id !== post.author?._id && (
-      <button
-        onClick={handleFollow}
-        disabled={followLoading}
-        className={`text-xs px-3 py-1.5 rounded-lg transition ${
-          isFollowing
-            ? 'bg-dark-hover text-surface-400'
-            : 'bg-brand-600 text-white hover:bg-brand-500'
-        }`}
-      >
-        {isFollowing ? 'Following' : 'Follow'}
-      </button>
-    )}
+<div className="flex items-center gap-2 relative z-50">
 
-    {/* MENU BUTTON */}
-    <button className="p-1.5 rounded-lg text-surface-600 hover:text-surface-300 hover:bg-dark-hover transition-all">
+  {/* ✅ FOLLOW BUTTON (PUT BACK HERE) */}
+      {currentUser?._id !== authorId && (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        handleFollow()
+      }}
+      disabled={followLoading}
+      className={`text-xs px-3 py-1.5 rounded-lg transition ${
+        isFollowing
+          ? 'bg-dark-hover text-surface-400'
+          : 'bg-brand-600 text-white hover:bg-brand-500'
+      } ${followLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+    >
+      {followLoading
+        ? '...'
+        : isFollowing
+          ? 'Following'
+          : 'Follow'}
+    </button>
+  )}
+
+  {/* ✅ MENU BUTTON (SEPARATE — NOT INSIDE FOLLOW CONDITION) */}
+  <div className="relative">
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        setShowMenu(p => !p)
+      }}
+      className="p-1.5 rounded-lg text-surface-600 hover:text-surface-300 hover:bg-dark-hover transition-all"
+    >
       <MoreHorizontal className="w-4 h-4" />
     </button>
+
+    {showMenu && (
+      <div className="absolute right-0 mt-2 w-36 bg-dark-card border border-dark-border rounded-lg shadow-lg z-50">
+        <button className="block w-full text-left px-3 py-2 text-sm hover:bg-dark-hover">
+          Report
+        </button>
+        <button className="block w-full text-left px-3 py-2 text-sm hover:bg-dark-hover">
+          Copy Link
+        </button>
+      </div>
+    )}
   </div>
+
 </div>
-          <button className="p-1.5 rounded-lg text-surface-600 hover:text-surface-300 hover:bg-dark-hover transition-all">
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
+      </div>    
         
 
         {/* Content */}

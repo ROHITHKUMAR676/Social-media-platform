@@ -3,32 +3,35 @@ import { Link } from 'react-router-dom'
 import { Phone, Video, MoreHorizontal, ArrowLeft } from 'lucide-react'
 import { useChat } from '../../context/ChatContext'
 import { useAuth } from '../../context/AuthContext'
-import MessageBubble, { TypingIndicator, DateDivider } from './MessageBubble'
+import MessageBubble, { DateDivider } from './MessageBubble'
 import ChatInput from './ChatInput'
 import { OnlineDot } from '../common/Badge'
 import { formatMessageGroupDate } from '../../utils/helpers'
 import UserAvatar from '../common/UserAvatar'
+
+const getUserId = (user) => user?._id?.toString() || user?.id?.toString() || null
+
 function groupMessagesByDate(messages) {
   const groups = []
   let currentDate = null
-  messages.forEach(msg => {
+
+  messages.forEach((msg) => {
     const date = formatMessageGroupDate(msg.createdAt)
     if (date !== currentDate) {
-      groups.push({ type: 'divider', label: date, id: 'div-' + msg.id })
+      groups.push({ type: 'divider', label: date, id: `div-${msg.id}` })
       currentDate = date
     }
     groups.push({ type: 'message', ...msg })
   })
+
   return groups
 }
 
 export default function ChatWindow({ onBack }) {
-  const { activeConversation, sendMessage } = useChat()
+  const { activeConversation, sendMessage, isLoading } = useChat()
   const { user } = useAuth()
-  const [isTyping, setIsTyping] = useState(false)
   const [messages, setMessages] = useState([])
   const bottomRef = useRef(null)
-  const typingTimer = useRef(null)
 
   useEffect(() => {
     if (activeConversation) {
@@ -38,35 +41,17 @@ export default function ChatWindow({ onBack }) {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isTyping])
+  }, [messages])
 
   const handleSend = async (content) => {
-    const msg = await sendMessage(activeConversation.id, content)
-    setMessages(prev => [...prev, msg])
-
-    // Simulate reply
-    setTimeout(() => {
-      setIsTyping(true)
-      setTimeout(() => {
-        setIsTyping(false)
-        const reply = {
-          id: 'reply-' + Date.now(),
-          senderId: activeConversation.participant.id,
-          content: getAutoReply(content),
-          createdAt: new Date().toISOString(),
-          seen: false,
-        }
-        setMessages(prev => [...prev, reply])
-      }, 2000)
-    }, 800)
+    try {
+      const msg = await sendMessage(activeConversation.id, content)
+      setMessages((prev) => [...prev, msg])
+    } catch (err) {
+      console.error(err)
+    }
   }
 
-  const handleTyping = () => {
-    clearTimeout(typingTimer.current)
-    typingTimer.current = setTimeout(() => {}, 1500)
-  }
-
-  // Empty state — no conversation selected (desktop only; mobile shows list instead)
   if (!activeConversation) {
     return (
       <div className="flex-1 hidden lg:flex flex-col items-center justify-center bg-dark-bg">
@@ -75,7 +60,7 @@ export default function ChatWindow({ onBack }) {
         </div>
         <h3 className="font-display font-bold text-white text-xl mb-2">Your Messages</h3>
         <p className="text-surface-500 text-sm text-center max-w-xs">
-          Select a conversation from the left to start chatting.
+          Select a conversation from the left or follow a developer to start chatting.
         </p>
       </div>
     )
@@ -86,12 +71,8 @@ export default function ChatWindow({ onBack }) {
 
   return (
     <div className="flex-1 flex flex-col bg-dark-bg min-w-0 overflow-hidden">
-
-      {/* ── Chat header ─────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-dark-border bg-dark-card flex-shrink-0">
         <div className="flex items-center gap-3">
-
-          {/* Back button — visible on ALL screen sizes when onBack is provided */}
           {onBack && (
             <button
               onClick={onBack}
@@ -117,10 +98,11 @@ export default function ChatWindow({ onBack }) {
               </p>
             </Link>
             <p className="text-xs leading-tight mt-0.5">
-              {participant.isOnline
-                ? <span className="text-emerald-400">Online</span>
-                : <span className="text-surface-500">Offline</span>
-              }
+              {participant.isOnline ? (
+                <span className="text-emerald-400">Online</span>
+              ) : (
+                <span className="text-surface-500">Offline</span>
+              )}
             </p>
           </div>
         </div>
@@ -138,39 +120,34 @@ export default function ChatWindow({ onBack }) {
         </div>
       </div>
 
-      {/* ── Messages area ───────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-hide">
-        {grouped.map(item =>
-          item.type === 'divider' ? (
-            <DateDivider key={item.id} label={item.label} />
-          ) : (
-            <MessageBubble
-              key={item.id}
-              message={item}
-              isMine={item.senderId === user?.id || item.senderId === 'cu1'}
-            />
+        {isLoading ? (
+          <div className="h-full flex items-center justify-center">
+            <p className="text-sm text-surface-500">Loading messages...</p>
+          </div>
+        ) : grouped.length === 0 ? (
+          <div className="h-full flex items-center justify-center">
+            <p className="text-sm text-surface-500 text-center max-w-xs">
+              No messages yet. Start the conversation with {participant.name.split(' ')[0]}.
+            </p>
+          </div>
+        ) : (
+          grouped.map((item) =>
+            item.type === 'divider' ? (
+              <DateDivider key={item.id} label={item.label} />
+            ) : (
+              <MessageBubble
+                key={item.id}
+                message={item}
+                isMine={item.senderId === getUserId(user) || item.senderId === 'cu1'}
+              />
+            )
           )
         )}
-        {isTyping && <TypingIndicator name={participant.name.split(' ')[0]} />}
         <div ref={bottomRef} />
       </div>
 
-      {/* ── Input ───────────────────────────────────── */}
-      <ChatInput onSend={handleSend} onTyping={handleTyping} />
+      <ChatInput onSend={handleSend} />
     </div>
   )
-}
-
-function getAutoReply(msg) {
-  const replies = [
-    "That's really interesting! Tell me more.",
-    "Totally agree with that approach.",
-    "Have you tried using a different pattern for that?",
-    "Yeah, I've run into that same issue before.",
-    "Nice! What's your tech stack for this?",
-    "Sounds like a solid plan 🔥",
-    "I'd love to collaborate on that sometime.",
-    "Thanks for sharing! Super helpful.",
-  ]
-  return replies[Math.floor(Math.random() * replies.length)]
 }
