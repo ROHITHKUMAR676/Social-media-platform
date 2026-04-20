@@ -286,13 +286,13 @@ useEffect(() => {
 
             {/* Stats */}
             <div className="flex items-center gap-6 mb-4 pb-4 border-b border-dark-border">
-              <Link to="/followers" className="text-center group">
+              <Link to={`/followers?user=${profileUser.username}`} className="text-center group">
                 <p className="font-display font-bold text-white text-lg group-hover:text-brand-400 transition-colors">
                   {formatNumber(followersCount)}
                 </p>
                 <p className="text-xs text-surface-600">Followers</p>
               </Link>
-              <Link to="/following" className="text-center group">
+              <Link to={`/following?user=${profileUser.username}`} className="text-center group">
                 <p className="font-display font-bold text-white text-lg group-hover:text-brand-400 transition-colors">
                   {formatNumber(followingCount)}
                 </p>

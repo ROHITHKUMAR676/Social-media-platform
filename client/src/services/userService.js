@@ -44,8 +44,25 @@ export const userService = {
     }
   },
   async getFollowStats(userId) {
-  const res = await api.get(`/users/${userId}/follow-stats`)
-  return res.data
-}
-  
+    const res = await api.get(`/users/${userId}/follow-stats`)
+    return res.data
+  },
+
+  async getFollowers(username) {
+    try {
+      const res = await api.get(`/users/profile/${username}/followers`)
+      return res.data
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'Failed to fetch followers')
+    }
+  },
+
+  async getFollowing(username) {
+    try {
+      const res = await api.get(`/users/profile/${username}/following`)
+      return res.data
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'Failed to fetch following list')
+    }
+  },
 }

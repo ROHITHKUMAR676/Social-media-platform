@@ -1,0 +1,23 @@
+{
+  "name": "social-media-platform",
+  "version": "1.0.0",
+  "description": "A full-stack social media application built with React and Node.js.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ROHITHKUMAR676/Social-media-platform.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ROHITHKUMAR676/Social-media-platform/issues"
+  },
+  "homepage": "https://github.com/ROHITHKUMAR676/Social-media-platform#readme",
+  "dependencies": {
+    "bcrypt": "^6.0.0"
+  }
+}

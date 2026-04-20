@@ -1,5 +1,35 @@
 import User from "../models/User.js";
 
+const publicUserListFields = [
+  "name",
+  "username",
+  "bio",
+  "role",
+  "skills",
+  "avatar",
+  "verified",
+].join(" ");
+
+const getUserConnectionList = async (req, res, next, listType) => {
+  try {
+    const user = await User.findOne({ username: req.params.username })
+      .select(`username ${listType}`)
+      .populate(listType, publicUserListFields);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      username: user.username,
+      users: user[listType] || [],
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 // 👤 Get Logged-in User Profile
 export const getProfile = async (req, res, next) => {
@@ -133,6 +163,14 @@ export const getFollowStats = async (req, res, next) => {
   }
 }
 // 🔥 FOLLOW / UNFOLLOW USER
+export const getFollowers = async (req, res, next) => {
+  await getUserConnectionList(req, res, next, "followers");
+};
+
+export const getFollowing = async (req, res, next) => {
+  await getUserConnectionList(req, res, next, "following");
+};
+
 export const toggleFollow = async (req, res, next) => {
   try {
     const targetUserId = req.params.id;

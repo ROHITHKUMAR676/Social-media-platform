@@ -1,63 +1,212 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { UserCheck, UserMinus } from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { UserCheck, UserMinus, UserPlus } from 'lucide-react'
 import Layout from '../components/layout/Layout'
-import { MOCK_USERS } from '@/data/mockData'
 import { SkillTag } from '../components/common/Badge'
-import UserAvatar from "@/components/common/UserAvatar";
+import UserAvatar from '@/components/common/UserAvatar'
+import { userService } from '../services/userService'
+import { useAuth } from '../context/AuthContext'
+
+const getUserId = (user) => user?._id?.toString() || user?.id?.toString() || null
+
 export default function Following() {
-  const following = MOCK_USERS.slice(0, 3)
-  const [unfollowed, setUnfollowed] = useState({})
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { user: currentUser, isAuthenticated, updateFollowing } = useAuth()
+  const [following, setFollowing] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [followLoadingId, setFollowLoadingId] = useState(null)
+
+  const params = useMemo(() => new URLSearchParams(location.search), [location.search])
+  const targetUsername = params.get('user') || currentUser?.username || ''
+  const isOwnList = Boolean(currentUser?.username && targetUsername === currentUser.username)
+
+  const followingIds = useMemo(
+    () => new Set((currentUser?.following || []).map((id) => id.toString())),
+    [currentUser]
+  )
+
+  useEffect(() => {
+    if (!targetUsername) {
+      setFollowing([])
+      setLoading(false)
+      return
+    }
+
+    let isMounted = true
+
+    const fetchFollowing = async () => {
+      setLoading(true)
+      setError('')
+
+      try {
+        const res = await userService.getFollowing(targetUsername)
+
+        if (!isMounted) return
+
+        setFollowing(res.users || [])
+      } catch (err) {
+        if (!isMounted) return
+
+        console.error(err)
+        setError(err.message || 'Failed to load following list')
+        setFollowing([])
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchFollowing()
+
+    return () => {
+      isMounted = false
+    }
+  }, [targetUsername])
+
+  const handleFollowToggle = async (person) => {
+    const personId = getUserId(person)
+
+    if (!isAuthenticated) {
+      navigate('/login')
+      return
+    }
+
+    if (!personId || followLoadingId) return
+
+    setFollowLoadingId(personId)
+
+    try {
+      const res = await userService.toggleFollow(personId)
+      updateFollowing(personId, res.isFollowing)
+
+      if (!res.isFollowing && isOwnList) {
+        setFollowing((prev) => prev.filter((item) => getUserId(item) !== personId))
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setFollowLoadingId(null)
+    }
+  }
+
+  const title = isOwnList ? 'Following' : `${targetUsername} is following`
 
   return (
     <Layout>
       <div className="flex items-center gap-2 mb-6">
         <UserCheck className="w-5 h-5 text-brand-400" />
-        <h1 className="font-display font-bold text-white text-2xl">Following</h1>
-        <span className="text-surface-500 text-sm font-normal ml-1">· {following.length}</span>
+        <h1 className="font-display font-bold text-white text-2xl">{title}</h1>
+        {!loading && (
+          <span className="text-surface-500 text-sm font-normal ml-1">({following.length})</span>
+        )}
       </div>
 
-      {following.length === 0 ? (
-        <div className="text-center py-20">
-          <UserCheck className="w-12 h-12 text-surface-700 mx-auto mb-4" />
-          <h3 className="font-display font-bold text-white text-xl mb-2">Not following anyone yet</h3>
-          <p className="text-surface-500 text-sm">Discover developers to follow on your home feed.</p>
-        </div>
-      ) : (
+      {loading ? (
         <div className="space-y-3">
-          {following.map(user => (
+          {[1, 2, 3].map((item) => (
             <div
-              key={user.id}
-              className={`bg-dark-card border border-dark-border rounded-2xl p-4 flex items-start gap-4 transition-all ${
-                unfollowed[user.id] ? 'opacity-50' : 'hover:border-surface-700/60'
-              }`}
+              key={item}
+              className="bg-dark-card border border-dark-border rounded-2xl p-4 flex items-start gap-4 animate-pulse"
             >
-              <Link to={`/profile/${user.username}`} className="flex-shrink-0">
-                <UserAvatar user={user} size="lg" shape="rounded" />
-              </Link>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <Link to={`/profile/${user.username}`}>
-                      <p className="font-semibold text-white hover:text-brand-400 transition-colors">{user.name}</p>
-                    </Link>
-                    <p className="text-xs text-surface-500 mb-1">@{user.username} · {user.role}</p>
-                    <p className="text-sm text-surface-400 line-clamp-1">{user.bio}</p>
-                  </div>
-                  <button
-                    onClick={() => setUnfollowed(p => ({ ...p, [user.id]: !p[user.id] }))}
-                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-dark-hover border border-dark-border text-surface-400 hover:text-red-400 hover:border-red-500/20 transition-all"
-                  >
-                    <UserMinus className="w-3.5 h-3.5" />
-                    {unfollowed[user.id] ? 'Unfollowed' : 'Unfollow'}
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {user.skills.slice(0, 3).map(s => <SkillTag key={s} skill={s} size="xs" />)}
-                </div>
+              <div className="w-14 h-14 rounded-xl bg-dark-hover flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-40 bg-dark-hover rounded" />
+                <div className="h-3 w-32 bg-dark-hover rounded" />
+                <div className="h-3 w-full bg-dark-hover rounded" />
               </div>
             </div>
           ))}
+        </div>
+      ) : error ? (
+        <div className="bg-dark-card border border-dark-border rounded-2xl p-8 text-center">
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      ) : following.length === 0 ? (
+        <div className="text-center py-20 bg-dark-card border border-dark-border rounded-2xl">
+          <UserCheck className="w-12 h-12 text-surface-700 mx-auto mb-4" />
+          <h3 className="font-display font-bold text-white text-xl mb-2">Not following anyone yet</h3>
+          <p className="text-surface-500 text-sm">
+            {isOwnList
+              ? 'Discover developers to follow on your home feed.'
+              : 'This user is not following anyone yet.'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {following.map((person) => {
+            const personId = getUserId(person)
+            const isOwnProfile = personId === getUserId(currentUser)
+            const isFollowingPerson = followingIds.has(personId)
+
+            return (
+              <div
+                key={personId}
+                className="bg-dark-card border border-dark-border rounded-2xl p-4 flex items-start gap-4 transition-all hover:border-surface-700/60"
+              >
+                <Link to={`/profile/${person.username}`} className="flex-shrink-0">
+                  <UserAvatar user={person} size="lg" shape="rounded" />
+                </Link>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link to={`/profile/${person.username}`}>
+                        <p className="font-semibold text-white hover:text-brand-400 transition-colors">
+                          {person.name}
+                        </p>
+                      </Link>
+                      <p className="text-xs text-surface-500 mb-1">
+                        @{person.username}
+                        {person.role ? ` - ${person.role}` : ''}
+                      </p>
+                      <p className="text-sm text-surface-400 line-clamp-1">
+                        {person.bio || 'No bio added yet.'}
+                      </p>
+                    </div>
+                    {!isOwnProfile && isAuthenticated && (
+                      <button
+                        onClick={() => handleFollowToggle(person)}
+                        disabled={followLoadingId === personId}
+                        className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                          isOwnList || isFollowingPerson
+                            ? 'bg-dark-hover border border-dark-border text-surface-400'
+                            : 'bg-brand-600 text-white hover:bg-brand-500 shadow-brand'
+                        } ${isOwnList ? 'hover:text-red-400 hover:border-red-500/20' : ''} ${
+                          followLoadingId === personId ? 'opacity-60 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {followLoadingId === personId ? (
+                          '...'
+                        ) : isOwnList ? (
+                          <>
+                            <UserMinus className="w-3.5 h-3.5" />
+                            Unfollow
+                          </>
+                        ) : isFollowingPerson ? (
+                          <>
+                            <UserCheck className="w-3.5 h-3.5" />
+                            Following
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="w-3.5 h-3.5" />
+                            Follow
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {(person.skills || []).slice(0, 3).map((skill) => (
+                      <SkillTag key={skill} skill={skill} size="xs" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </Layout>
