@@ -1,48 +1,86 @@
-import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, ArrowLeft } from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, Lock, MessageSquare, PenSquare } from 'lucide-react'
 import Layout from '../components/layout/Layout'
 import ForumHeader from '../components/forum/ForumHeader'
-import ForumPost from '../components/forum/ForumPost'
-import ForumMembers from '../components/forum/ForumMembers'
-import ForumApplication from '../components/forum/ForumApplication'
-import { useAuth } from '../context/AuthContext'
-import { useForums } from '../context/ForumContext'
+import PostCard from '../components/post/PostCard'
+import CreatePost from '../components/post/CreatePost'
 import { LoginPromptModal } from '../components/common/Modal'
 import { Skeleton } from '../components/common/Loader'
-import { calculateProfileMatch } from '../utils/helpers'
-import { FORUM_POSTS } from '@/data/mockData'
+import { useAuth } from '../context/AuthContext'
+import { useForums } from '../context/ForumContext'
+import { postService } from '../services/postService'
 
 export default function ForumDetail() {
-  const { slug } = useParams()
+  const { id } = useParams()
   const navigate = useNavigate()
-  const { isAuthenticated, user } = useAuth()
-  const { forums, applyToForum } = useForums()
+  const { isAuthenticated } = useAuth()
+  const { forums, isLoading: forumsLoading, joinForum } = useForums()
   const [forum, setForum] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [applying, setApplying] = useState(false)
+  const [posts, setPosts] = useState([])
+  const [loadingPosts, setLoadingPosts] = useState(true)
+  const [joining, setJoining] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
-  const [tab, setTab] = useState('posts')
 
   useEffect(() => {
-    setTimeout(() => {
-      setForum(forums.find(f => f.slug === slug) || null)
-      setLoading(false)
-    }, 400)
-  }, [slug, forums])
+    const matchedForum = forums.find((item) => item.id === id) || null
+    if (matchedForum) {
+      setForum(matchedForum)
+    }
+  }, [forums, id])
 
-  const handleApply = async () => {
-    if (!isAuthenticated) { setShowLogin(true); return }
-    setApplying(true)
-    await applyToForum(forum.id)
-    setForum(prev => ({ ...prev, memberStatus: 'applied' }))
-    setApplying(false)
+  useEffect(() => {
+    const fetchForumPosts = async () => {
+      setLoadingPosts(true)
+      try {
+        const res = await postService.getForumPosts(id)
+        setForum(res.forum)
+        setPosts(res.posts)
+      } catch (err) {
+        console.error(err)
+        setPosts([])
+      } finally {
+        setLoadingPosts(false)
+      }
+    }
+
+    fetchForumPosts()
+  }, [id])
+
+  const handleJoin = async () => {
+    if (!isAuthenticated) {
+      setShowLogin(true)
+      return
+    }
+
+    setJoining(true)
+    try {
+      const updatedForum = await joinForum(id)
+      setForum(updatedForum)
+    } finally {
+      setJoining(false)
+    }
   }
 
-  const matchPercent = calculateProfileMatch(user?.skills, forum?.requiredSkills)
-  const forumPosts = FORUM_POSTS.filter(p => p.forumId === forum?.id)
+  const handleNewPost = (newPost) => {
+    setPosts((prev) => [newPost, ...prev])
+    setForum((prev) => prev ? { ...prev, postsCount: (prev.postsCount || 0) + 1 } : prev)
+  }
 
-  if (loading) {
+  const permissionMessage = useMemo(() => {
+    if (!forum) return ''
+    if (forum.permissions?.canPost) return 'You can post and comment in this forum.'
+    if (forum.permissions?.canComment) return 'You can comment here. Reach 71%+ match to create posts.'
+    return 'View only. Reach at least 40% skill match to comment.'
+  }, [forum])
+
+  const permissionIcon = forum?.permissions?.canPost
+    ? PenSquare
+    : forum?.permissions?.canComment
+      ? MessageSquare
+      : Lock
+
+  if (forumsLoading && !forum) {
     return (
       <Layout>
         <div className="space-y-4">
@@ -53,11 +91,11 @@ export default function ForumDetail() {
     )
   }
 
-  if (!forum) {
+  if (!forum && !loadingPosts) {
     return (
       <Layout>
-        <div className="text-center py-20">
-          <p className="text-surface-500">Community not found.</p>
+        <div className="text-center py-20 bg-dark-card border border-dark-border rounded-2xl">
+          <p className="text-surface-500">Forum not found.</p>
           <button onClick={() => navigate('/forums')} className="btn-secondary mt-4 mx-auto">
             <ArrowLeft className="w-4 h-4" /> Back to Forums
           </button>
@@ -66,84 +104,78 @@ export default function ForumDetail() {
     )
   }
 
-  const rightContent = (
-    <div className="space-y-4">
-      <ForumMembers forum={forum} />
-      {isAuthenticated && forum.memberStatus === 'none' && (
-        <ForumApplication forum={forum} onApplied={() => setForum(p => ({ ...p, memberStatus: 'applied' }))} />
-      )}
-    </div>
-  )
+  const PermissionIcon = permissionIcon
 
   return (
     <>
-      <Layout rightPanel={rightContent}>
+      <Layout>
         <div className="space-y-4">
-          {/* Back */}
           <button
             onClick={() => navigate('/forums')}
             className="flex items-center gap-2 text-sm text-surface-500 hover:text-white transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" /> Communities
+            <ArrowLeft className="w-4 h-4" /> Forums
           </button>
 
-          {/* Forum Header */}
-          <ForumHeader
-            forum={forum}
-            onApply={handleApply}
-            applying={applying}
-            matchPercent={isAuthenticated ? matchPercent : 0}
-          />
+          {forum && (
+            <ForumHeader
+              forum={forum}
+              onJoin={handleJoin}
+              joining={joining}
+              matchPercent={isAuthenticated ? forum.matchPercent : null}
+            />
+          )}
 
-          {/* Tab bar */}
-          <div className="flex gap-1 p-1 bg-dark-card border border-dark-border rounded-2xl">
-            {['posts', 'members', 'about'].map(t => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all capitalize ${
-                  tab === t ? 'bg-brand-600 text-white' : 'text-surface-500 hover:text-white hover:bg-dark-hover'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+          {forum && (
+            <div className="bg-dark-card border border-dark-border rounded-2xl p-4 flex items-start gap-3">
+              <div className={`mt-0.5 p-2 rounded-xl ${
+                forum.permissions?.canPost
+                  ? 'bg-emerald-500/10 text-emerald-400'
+                  : forum.permissions?.canComment
+                    ? 'bg-yellow-500/10 text-yellow-400'
+                    : 'bg-red-500/10 text-red-400'
+              }`}>
+                <PermissionIcon className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white">Participation level</p>
+                <p className="text-sm text-surface-500">{permissionMessage}</p>
+              </div>
+            </div>
+          )}
 
-          {/* Posts */}
-          {tab === 'posts' && (
+          {forum?.permissions?.canPost && (
+            <CreatePost
+              onPost={handleNewPost}
+              placeholder={`Start a conversation in ${forum.name}...`}
+              submitLabel="Publish"
+              postPayload={{ forumId: forum.id }}
+              typeOptions={[
+                { label: 'Post', value: 'post' },
+                { label: 'Question', value: 'question' },
+              ]}
+            />
+          )}
+
+          {loadingPosts ? (
             <div className="space-y-4">
-              {forum.memberStatus === 'approved' && (
-                <button className="w-full flex items-center gap-3 p-4 bg-dark-card border border-dark-border rounded-2xl text-surface-500 hover:text-white hover:border-brand-500/30 transition-all text-sm">
-                  <Plus className="w-4 h-4" /> Start a discussion in {forum.name}...
-                </button>
-              )}
-              {forumPosts.length === 0 ? (
-                <div className="bg-dark-card border border-dark-border rounded-2xl p-12 text-center">
-                  <p className="text-surface-500">No posts yet. Be the first to start a discussion!</p>
-                </div>
-              ) : (
-                forumPosts.map(post => <ForumPost key={post.id} post={post} />)
-              )}
+              <Skeleton className="h-40 rounded-2xl" />
+              <Skeleton className="h-40 rounded-2xl" />
             </div>
-          )}
-
-          {tab === 'members' && (
-            <div className="bg-dark-card border border-dark-border rounded-2xl p-5">
-              <ForumMembers forum={forum} />
+          ) : posts.length === 0 ? (
+            <div className="bg-dark-card border border-dark-border rounded-2xl p-12 text-center">
+              <p className="text-surface-500">No forum posts yet. Once someone starts the first discussion, it’ll show up here.</p>
             </div>
-          )}
-
-          {tab === 'about' && (
-            <div className="bg-dark-card border border-dark-border rounded-2xl p-5 space-y-4">
-              <div>
-                <h3 className="font-semibold text-white mb-2">About</h3>
-                <p className="text-surface-400 text-sm leading-relaxed">{forum.description}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-2">Category</h3>
-                <span className="skill-tag">{forum.category}</span>
-              </div>
+          ) : (
+            <div className="space-y-4">
+              {posts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  canComment={Boolean(forum?.permissions?.canComment)}
+                  commentPermissionMessage={forum?.permissions?.canComment ? '' : 'Commenting is locked until you reach a 40% skill match for this forum.'}
+                />
+              ))}
             </div>
           )}
         </div>

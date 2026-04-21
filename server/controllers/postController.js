@@ -1,114 +1,144 @@
 import Post from "../models/Post.js";
 import User from "../models/User.js";
+import Forum from "../models/Forum.js";
+import { calculateMatch, getAccessLevel } from "../utils/forumAccess.js";
 
-// 📝 Create Post
+const formatPost = (post, currentUserId) => ({
+  id: post._id,
+  content: post.content,
+  codeSnippet: post.codeSnippet,
+  tags: post.tags,
+  type: post.type,
+  forum: post.forum
+    ? {
+        id: post.forum._id || post.forum,
+        name: post.forum.name,
+      }
+    : null,
+  likes: post.likes.length,
+  comments: post.comments?.length || 0,
+  createdAt: post.createdAt,
+  liked: post.likes.some((id) => id.toString() === currentUserId),
+  bookmarked: false,
+  author: {
+    _id: post.author._id,
+    name: post.author.name,
+    username: post.author.username,
+    avatar: post.author.avatar,
+    role: post.author.role,
+    verified: post.author.verified,
+  },
+});
+
+const assertForumPermission = async (user, forumId, action) => {
+  if (!forumId) {
+    return null;
+  }
+
+  const forum = await Forum.findById(forumId);
+
+  if (!forum) {
+    const error = new Error("Forum not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const matchPercent = calculateMatch(user.skills || [], forum.skillsRequired);
+  const access = getAccessLevel(matchPercent);
+
+  if (action === "post" && !access.canPost) {
+    const error = new Error(
+      "You need more than 70% skill match to create a post in this forum"
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (action === "comment" && !access.canComment) {
+    const error = new Error(
+      "You need at least 40% skill match to comment in this forum"
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return forum;
+};
+
 export const createPost = async (req, res, next) => {
   try {
-    const { content, codeSnippet, tags } = req.body;
+    const { content, codeSnippet, tags, forumId, type = "post" } = req.body;
+
+    if (!content?.trim()) {
+      return res.status(400).json({ message: "Post content is required" });
+    }
+
+    const forum = await assertForumPermission(req.user, forumId, "post");
 
     const post = await Post.create({
       author: req.user._id,
       content,
       codeSnippet,
       tags,
+      forum: forum?._id || null,
+      type,
     });
 
-    const populated = await post.populate(
-      "author",
-      "name username avatar role verified"
-    );
+    const populated = await post.populate([
+      { path: "author", select: "name username avatar role verified" },
+      { path: "forum", select: "name" },
+    ]);
 
-    res.status(201).json({
-      id: populated._id,
-      content: populated.content,
-      codeSnippet: populated.codeSnippet,
-      tags: populated.tags,
-      likes: 0,
-      comments: 0,
-      createdAt: populated.createdAt,
-      liked: false,
-      bookmarked: false,
-     author: {
-  _id: post.author._id,   // 🔥 ADD THIS LINE
-  name: post.author.name,
-  username: post.author.username,
-  avatar: post.author.avatar,
-  role: post.author.role,
-  verified: post.author.verified,
-},
-    });
+    res.status(201).json(formatPost(populated, req.user._id.toString()));
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     next(err);
   }
 };
 
-// 📄 Get Feed (SMART FEED 🔥)
 export const getPosts = async (req, res, next) => {
   try {
     let posts = [];
 
     if (req.user?._id) {
       const user = await User.findById(req.user._id);
-
       const followingIds = user.following || [];
 
-      // 🔥 1. Following posts
       const followingPosts = await Post.find({
         author: { $in: followingIds },
+        forum: null,
       })
         .sort({ createdAt: -1 })
         .populate("author", "name username avatar role verified");
 
-      // 🔥 2. Other posts
       const otherPosts = await Post.find({
         author: { $nin: followingIds },
+        forum: null,
       })
         .sort({ createdAt: -1 })
         .populate("author", "name username avatar role verified");
 
       posts = [...followingPosts, ...otherPosts];
     } else {
-      // 🌍 Public feed
-      posts = await Post.find()
+      posts = await Post.find({ forum: null })
         .sort({ createdAt: -1 })
         .populate("author", "name username avatar role verified");
     }
 
-    // 🔥 Normalize response (VERY IMPORTANT)
-    const formattedPosts = posts.map((post) => ({
-      id: post._id,
-      content: post.content,
-      codeSnippet: post.codeSnippet,
-      tags: post.tags,
-      likes: post.likes.length,
-      comments: post.comments?.length || 0,
-      createdAt: post.createdAt,
-      liked: post.likes.some(
-        (id) => id.toString() === req.user?._id?.toString()
-      ),
-      bookmarked: false,
-
-      author: {
-        _id: post.author._id, 
-        name: post.author.name,
-        username: post.author.username,
-        avatar: post.author.avatar,
-        role: post.author.role,
-        verified: post.author.verified,
-      },
-    }));
+    const currentUserId = req.user?._id?.toString();
 
     res.status(200).json({
       success: true,
-      count: formattedPosts.length,
-      posts: formattedPosts,
+      count: posts.length,
+      posts: posts.map((post) => formatPost(post, currentUserId)),
     });
   } catch (err) {
     next(err);
   }
 };
 
-// ❤️ Like / Unlike Post
 export const toggleLike = async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -119,18 +149,11 @@ export const toggleLike = async (req, res, next) => {
     }
 
     const userId = req.user._id.toString();
-
-    const alreadyLiked = post.likes.some(
-      (id) => id.toString() === userId
-    );
+    const alreadyLiked = post.likes.some((id) => id.toString() === userId);
 
     if (alreadyLiked) {
-      // ❌ Unlike
-      post.likes = post.likes.filter(
-        (id) => id.toString() !== userId
-      );
+      post.likes = post.likes.filter((id) => id.toString() !== userId);
     } else {
-      // ✅ Like
       post.likes.push(req.user._id);
     }
 
@@ -145,11 +168,12 @@ export const toggleLike = async (req, res, next) => {
     next(err);
   }
 };
+
 export const addComment = async (req, res, next) => {
   try {
     const { text } = req.body;
 
-    if (!text) {
+    if (!text?.trim()) {
       return res.status(400).json({ message: "Comment required" });
     }
 
@@ -160,35 +184,38 @@ export const addComment = async (req, res, next) => {
       throw new Error("Post not found");
     }
 
-    const comment = {
+    await assertForumPermission(req.user, post.forum, "comment");
+
+    post.comments.push({
       user: req.user._id,
       text,
-    };
+    });
 
-    post.comments.push(comment);
     await post.save();
 
-    // 🔥 IMPORTANT: populate after save
-    const populatedPost = await post.populate(
-      "comments.user",
-      "name username avatar"
-    );
+    const populatedPost = await post.populate([
+      { path: "comments.user", select: "name username avatar" },
+      { path: "comments.replies.user", select: "name username avatar" },
+    ]);
 
     res.status(201).json({
       success: true,
-      comments: populatedPost.comments, // ✅ FULL ARRAY
+      comments: populatedPost.comments,
     });
-
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     next(err);
   }
 };
-// 💬 ADD REPLY
 
 export const getComments = async (req, res, next) => {
   try {
-    const post = await Post.findById(req.params.id)
-      .populate("comments.user", "name username avatar");
+    const post = await Post.findById(req.params.id).populate([
+      { path: "comments.user", select: "name username avatar" },
+      { path: "comments.replies.user", select: "name username avatar" },
+    ]);
 
     if (!post) {
       res.status(404);
@@ -203,6 +230,7 @@ export const getComments = async (req, res, next) => {
     next(err);
   }
 };
+
 export const getUserPosts = async (req, res, next) => {
   try {
     const user = await User.findOne({ username: req.params.username });
@@ -213,73 +241,63 @@ export const getUserPosts = async (req, res, next) => {
 
     const posts = await Post.find({ author: user._id })
       .sort({ createdAt: -1 })
-      .populate("author", "name username avatar");
+      .populate("author", "name username avatar role verified")
+      .populate("forum", "name");
 
-    const formattedPosts = posts.map((post) => ({
-      id: post._id,
-      content: post.content,
-      codeSnippet: post.codeSnippet,
-      tags: post.tags,
-      likes: post.likes.length,
-      comments: post.comments.length,
-      createdAt: post.createdAt,
-      liked: post.likes.some(
-        (id) => id.toString() === req.user?._id?.toString()
-      ),
-      bookmarked: false,
-
-      author: {
-  _id: post.author._id,   // 🔥 ADD THIS
-  name: post.author.name,
-  username: post.author.username,
-  avatar: post.author.avatar,
-},
-    }));
+    const currentUserId = req.user?._id?.toString();
 
     res.status(200).json({
       success: true,
-      posts: formattedPosts,
+      posts: posts.map((post) => formatPost(post, currentUserId)),
     });
   } catch (err) {
     next(err);
   }
 };
-// 💬 ADD REPLY
+
 export const addReply = async (req, res, next) => {
   try {
-    const { text } = req.body
-    const { id, commentId } = req.params
+    const { text } = req.body;
+    const { id, commentId } = req.params;
 
-    const post = await Post.findById(id)
-
-    if (!post) {
-      return res.status(404).json({ message: "Post not found" })
+    if (!text?.trim()) {
+      return res.status(400).json({ message: "Reply required" });
     }
 
-    const comment = post.comments.id(commentId)
+    const post = await Post.findById(id);
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    await assertForumPermission(req.user, post.forum, "comment");
+
+    const comment = post.comments.id(commentId);
 
     if (!comment) {
-      return res.status(404).json({ message: "Comment not found" })
+      return res.status(404).json({ message: "Comment not found" });
     }
 
     comment.replies.push({
       user: req.user._id,
       text,
-    })
+    });
 
-    await post.save()
+    await post.save();
 
     const populated = await post.populate([
       { path: "comments.user", select: "name username avatar" },
-      { path: "comments.replies.user", select: "name username avatar" }
-    ])
+      { path: "comments.replies.user", select: "name username avatar" },
+    ]);
 
     res.status(201).json({
       success: true,
       comments: populated.comments,
-    })
-
+    });
   } catch (err) {
-    next(err)
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
+    next(err);
   }
-}
+};

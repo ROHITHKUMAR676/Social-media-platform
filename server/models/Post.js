@@ -15,7 +15,8 @@ const replySchema = new mongoose.Schema(
     },
   },
   { timestamps: true }
-)
+);
+
 const commentSchema = new mongoose.Schema(
   {
     user: {
@@ -29,15 +30,11 @@ const commentSchema = new mongoose.Schema(
       trim: true,
       maxlength: 300,
     },
-
-    // 🔥 replies (threaded)
     replies: [replySchema],
   },
   { timestamps: true }
 );
 
-
-// 🔥 POST SCHEMA (MAIN)
 const postSchema = new mongoose.Schema(
   {
     author: {
@@ -45,28 +42,44 @@ const postSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-
     content: {
       type: String,
       required: true,
       trim: true,
       maxlength: 1000,
     },
-
+    codeSnippet: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    tags: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
     image: {
       type: String,
       default: null,
     },
-
+    forum: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Forum",
+      default: null,
+    },
+    type: {
+      type: String,
+      enum: ["post", "question"],
+      default: "post",
+    },
     likes: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
     ],
-
     comments: [commentSchema],
-
     likesCount: {
       type: Number,
       default: 0,
@@ -75,8 +88,7 @@ const postSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-
-// 🔥 INDEX
 postSchema.index({ createdAt: -1 });
+postSchema.index({ forum: 1, createdAt: -1 });
 
 export default mongoose.model("Post", postSchema);

@@ -1,24 +1,33 @@
-import { sleep } from '../utils/helpers'
-import { MOCK_FORUMS } from '@/data/mockData'
+import api from './api'
 
 export const forumService = {
   async getForums() {
-    await sleep(400)
-    return MOCK_FORUMS
+    try {
+      const res = await api.get('/forums')
+      return res.data.forums || []
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'Failed to fetch forums')
+    }
   },
 
-  async getForum(slug) {
-    await sleep(300)
-    return MOCK_FORUMS.find(f => f.slug === slug) || null
+  async joinForum(forumId) {
+    try {
+      const res = await api.post(`/forums/${forumId}/join`)
+      return res.data.forum
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'Failed to join forum')
+    }
   },
 
-  async applyToForum(forumId) {
-    await sleep(600)
-    return { success: true, status: 'applied' }
-  },
-
-  async getMembers(forumId) {
-    await sleep(400)
-    return []
+  async getForumPosts(forumId) {
+    try {
+      const res = await api.get(`/forums/${forumId}/posts`)
+      return {
+        forum: res.data.forum,
+        posts: res.data.posts || [],
+      }
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'Failed to fetch forum posts')
+    }
   },
 }

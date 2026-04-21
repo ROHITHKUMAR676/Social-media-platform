@@ -1,19 +1,19 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { TrendingUp, Users, ArrowRight } from 'lucide-react'
-import { MOCK_USERS, MOCK_FORUMS } from '@/data/mockData'
+import { MOCK_USERS } from '@/data/mockData'
 import { formatNumber } from '../../utils/helpers'
-import { SkillTag } from '../common/Badge'
 import { useAuth } from '../../context/AuthContext'
+import { useForums } from '../../context/ForumContext'
 import UserAvatar from '../common/UserAvatar'
+
 export default function RightPanel() {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated } = useAuth()
+  const { forums } = useForums()
 
   return (
     <aside className="w-72 flex-shrink-0 hidden xl:block">
       <div className="sticky top-20 space-y-4">
-
-        {/* Trending Tags */}
         <div className="bg-dark-card border border-dark-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="w-4 h-4 text-brand-400" />
@@ -38,7 +38,6 @@ export default function RightPanel() {
           </div>
         </div>
 
-        {/* Who to follow */}
         <div className="bg-dark-card border border-dark-border rounded-2xl p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -47,7 +46,7 @@ export default function RightPanel() {
             </div>
           </div>
           <div className="space-y-3">
-            {MOCK_USERS.slice(0, 4).map(u => (
+            {MOCK_USERS.slice(0, 4).map((u) => (
               <div key={u.id} className="flex items-center gap-3">
                 <Link to={`/profile/${u.username}`} className="flex-shrink-0">
                   <UserAvatar user={u} size="sm" />
@@ -68,32 +67,30 @@ export default function RightPanel() {
           </div>
         </div>
 
-        {/* Active Forums */}
         <div className="bg-dark-card border border-dark-border rounded-2xl p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-display font-semibold text-white text-sm">Active Communities</h3>
             <Link to="/forums" className="text-xs text-brand-400 hover:text-brand-300">See all</Link>
           </div>
           <div className="space-y-2.5">
-            {MOCK_FORUMS.slice(0, 3).map(forum => (
+            {forums.slice(0, 3).map((forum) => (
               <Link
                 key={forum.id}
-                to={`/forums/${forum.slug}`}
+                to={`/forums/${forum.id}`}
                 className="flex items-center gap-3 group"
               >
-                <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${forum.coverColor} flex items-center justify-center flex-shrink-0`}>
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
                   <span className="text-white text-xs font-bold">{forum.name[0]}</span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-surface-300 group-hover:text-white transition-colors truncate">{forum.name}</p>
-                  <p className="text-xs text-surface-600">{formatNumber(forum.members)} members</p>
+                  <p className="text-xs text-surface-600">{formatNumber(forum.membersCount || 0)} members</p>
                 </div>
               </Link>
             ))}
           </div>
         </div>
 
-        {/* Footer */}
         <p className="text-xs text-surface-700 px-1 pb-4">
           © 2024 DevConnect · Privacy · Terms
         </p>

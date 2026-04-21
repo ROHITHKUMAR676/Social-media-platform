@@ -1,116 +1,82 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Users, FileText, CheckCircle2, Clock } from 'lucide-react'
+import { Users, FileText, CheckCircle2, Lock, MessageSquare, PenSquare } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useForums } from '../../context/ForumContext'
 import { LoginPromptModal } from '../common/Modal'
 import { SkillTag } from '../common/Badge'
-import { formatNumber, calculateProfileMatch } from '../../utils/helpers'
+import { formatNumber } from '../../utils/helpers'
 
 export default function ForumCard({ forum }) {
-  const { isAuthenticated, user } = useAuth()
-  const { applyToForum } = useForums()
+  const { isAuthenticated } = useAuth()
+  const { joinForum } = useForums()
   const navigate = useNavigate()
   const [showLogin, setShowLogin] = useState(false)
-  const [applying, setApplying] = useState(false)
-  const [status, setStatus] = useState(forum.memberStatus)
+  const [joining, setJoining] = useState(false)
+  const [joined, setJoined] = useState(forum.joined)
 
-  const matchPercent = calculateProfileMatch(user?.skills, forum.requiredSkills)
+  const matchPercent = isAuthenticated ? (forum.matchPercent || 0) : 0
+  const matchTone = matchPercent > 70
+    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+    : matchPercent >= 40
+      ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20'
+      : 'text-red-400 bg-red-500/10 border-red-500/20'
 
-  const handleApply = async (e) => {
+  const accessInfo = forum.permissions?.canPost
+    ? { icon: PenSquare, label: 'Can post' }
+    : forum.permissions?.canComment
+      ? { icon: MessageSquare, label: 'Can comment' }
+      : { icon: Lock, label: 'View only' }
+
+  const handleJoin = async (e) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!isAuthenticated) { setShowLogin(true); return }
-    if (status !== 'none') return
-    setApplying(true)
-    await applyToForum(forum.id)
-    setStatus('applied')
-    setApplying(false)
-  }
+    if (!isAuthenticated) {
+      setShowLogin(true)
+      return
+    }
+    if (joined) return
 
-  const statusConfig = {
-    approved: {
-      label: 'Member',
-      icon: CheckCircle2,
-      className: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
-    },
-    applied: {
-      label: 'Applied',
-      icon: Clock,
-      className: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
-    },
-    none: null,
+    setJoining(true)
+    try {
+      await joinForum(forum.id)
+      setJoined(true)
+    } finally {
+      setJoining(false)
+    }
   }
-  const statusInfo = statusConfig[status]
 
   return (
     <>
-      <Link to={`/forums/${forum.slug}`} className="block group">
-        <div className="
-          bg-dark-card border border-dark-border rounded-2xl
-          overflow-hidden
-          hover:border-surface-600/50 hover:shadow-card-hover
-          transition-all duration-200
-          flex flex-col
-        ">
-          {/* ── Cover banner ─────────────────────────────────────────
-              Uses a fixed height and does NOT bleed into card body.
-              The forum-letter avatar sits INSIDE the card body below,
-              so there is zero overlap with bg-dark-card.             */}
-          <div className={`h-16 flex-shrink-0 bg-gradient-to-r ${forum.coverColor} relative`}>
+      <Link to={`/forums/${forum.id}`} className="block group">
+        <div className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden hover:border-surface-600/50 hover:shadow-card-hover transition-all duration-200 flex flex-col">
+          <div className="h-16 flex-shrink-0 bg-gradient-to-r from-brand-500 to-cyan-500 relative">
             <div className="absolute inset-0 bg-black/20" />
-
-            {/* % match pill — top-right of banner */}
-            {isAuthenticated && matchPercent > 0 && (
-              <div className="
-                absolute top-2 right-2
-                bg-black/50 backdrop-blur-sm
-                rounded-full px-2 py-0.5
-                text-xs font-semibold text-white
-              ">
+            {isAuthenticated && (
+              <div className={`absolute top-2 right-2 rounded-full px-2 py-0.5 text-xs font-semibold border backdrop-blur-sm bg-black/40 ${matchTone}`}>
                 {matchPercent}% match
               </div>
             )}
           </div>
 
-          {/* ── Card body ──────────────────────────────────────────── */}
           <div className="p-4 flex flex-col gap-3 bg-dark-card">
-
-            {/* Row: avatar icon  +  status badge */}
             <div className="flex items-center justify-between">
-              {/* Letter avatar — solid bg, no negative margin */}
-              <div className={`
-                w-11 h-11 rounded-xl flex-shrink-0
-                bg-gradient-to-br ${forum.coverColor}
-                border-2 border-dark-border
-                flex items-center justify-center shadow-md
-              `}>
+              <div className="w-11 h-11 rounded-xl flex-shrink-0 bg-gradient-to-br from-brand-500 to-cyan-500 border-2 border-dark-border flex items-center justify-center shadow-md">
                 <span className="text-white font-display font-bold text-base leading-none">
                   {forum.name[0]}
                 </span>
               </div>
 
-              {/* Status badge */}
-              {statusInfo && (
-                <span className={`
-                  inline-flex items-center gap-1
-                  px-2.5 py-1 rounded-full
-                  text-xs font-semibold
-                  ${statusInfo.className}
-                `}>
-                  <statusInfo.icon className="w-3 h-3" />
-                  {statusInfo.label}
+              {joined && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Joined
                 </span>
               )}
             </div>
 
-            {/* Name + description */}
             <div>
-              <h3 className="
-                font-display font-bold text-white text-base
-                group-hover:text-brand-400 transition-colors
-                line-clamp-1 leading-snug
-              ">
+              <h3 className="font-display font-bold text-white text-base group-hover:text-brand-400 transition-colors line-clamp-1 leading-snug">
                 {forum.name}
               </h3>
               <p className="text-surface-500 text-xs leading-relaxed mt-1 line-clamp-2">
@@ -118,38 +84,49 @@ export default function ForumCard({ forum }) {
               </p>
             </div>
 
-            {/* Stats */}
+            {isAuthenticated && (
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${matchTone}`}>
+                  <accessInfo.icon className="w-3 h-3" />
+                  {accessInfo.label}
+                </span>
+                {forum.missingSkills?.length > 0 && (
+                  <span className="text-surface-500 truncate">
+                    Learn {forum.missingSkills.slice(0, 2).join(', ')}
+                  </span>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center gap-4 text-xs text-surface-600">
               <span className="flex items-center gap-1">
                 <Users className="w-3.5 h-3.5" />
-                {formatNumber(forum.members)} members
+                {formatNumber(forum.membersCount || 0)} members
               </span>
               <span className="flex items-center gap-1">
                 <FileText className="w-3.5 h-3.5" />
-                {formatNumber(forum.posts)} posts
+                {formatNumber(forum.postsCount || 0)} posts
               </span>
             </div>
 
-            {/* Required skills */}
             <div className="flex flex-wrap gap-1">
-              {forum.requiredSkills.slice(0, 3).map(skill => (
+              {forum.skillsRequired.slice(0, 3).map((skill) => (
                 <SkillTag key={skill} skill={skill} size="xs" />
               ))}
-              {forum.requiredSkills.length > 3 && (
+              {forum.skillsRequired.length > 3 && (
                 <span className="text-xs text-surface-600 self-center">
-                  +{forum.requiredSkills.length - 3}
+                  +{forum.skillsRequired.length - 3}
                 </span>
               )}
             </div>
 
-            {/* Apply button */}
-            {status === 'none' && (
+            {!joined && (
               <button
-                onClick={handleApply}
-                disabled={applying}
+                onClick={handleJoin}
+                disabled={joining}
                 className="w-full btn-primary text-xs py-2 justify-center"
               >
-                {applying ? 'Applying...' : 'Apply to Join'}
+                {joining ? 'Joining...' : 'Join Forum'}
               </button>
             )}
           </div>

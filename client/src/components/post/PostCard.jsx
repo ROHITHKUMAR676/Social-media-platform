@@ -10,10 +10,15 @@ import { LoginPromptModal } from '../common/Modal'
 import { SkillTag } from '../common/Badge'
 import { postService } from '@/services/postService'
 import { formatRelativeTime, formatNumber } from '../../utils/helpers'
-import { MOCK_COMMENTS } from '@/data/mockData'
 import UserAvatar from '../common/UserAvatar'
 
-export default function PostCard({ post, onLike, onFollowChange }) {
+export default function PostCard({
+  post,
+  onLike,
+  onFollowChange,
+  canComment = true,
+  commentPermissionMessage = '',
+}) {
   const { isAuthenticated, user: currentUser, updateFollowing } = useAuth()
   const navigate = useNavigate()
   const [showLogin, setShowLogin] = useState(false)
@@ -28,28 +33,46 @@ export default function PostCard({ post, onLike, onFollowChange }) {
   const authorId = post.author?._id || post.author?.id
   const [loadingComments, setLoadingComments] = useState(false)
   const [replyText, setReplyText] = useState('')
-const [activeReply, setActiveReply] = useState(null)
-useEffect(() => {
-  if (!showComments) return
+  const [activeReply, setActiveReply] = useState(null)
+  const [isLiking, setIsLiking] = useState(false)
+  const [isFollowing, setIsFollowing] = useState(false)
+  const [followLoading, setFollowLoading] = useState(false)
 
-  const fetchComments = async () => {
-    setLoadingComments(true)
+  useEffect(() => {
+    if (!showComments) return
 
-    try {
-      const res = await postService.getComments(post.id)
-      setComments(res.comments || [])
-      setCommentCount(res.comments.length)
-    } catch (err) {
-      console.error(err)
-      setComments([])
+    const fetchComments = async () => {
+      setLoadingComments(true)
+
+      try {
+        const res = await postService.getComments(post.id)
+        setComments(res.comments || [])
+        setCommentCount(res.comments.length)
+      } catch (err) {
+        console.error(err)
+        setComments([])
+      }
+
+      setLoadingComments(false)
     }
 
-    setLoadingComments(false)
-  }
+    fetchComments()
+  }, [showComments, post.id])
 
-  fetchComments()
-}, [showComments, post.id])
-  const requireAuth = (action) => {
+  useEffect(() => {
+    if (!currentUser || !authorId) {
+      setIsFollowing(false)
+      return
+    }
+
+    const isFollowingAuthor = currentUser.following?.some(
+      (id) => id.toString() === authorId.toString()
+    )
+
+    setIsFollowing(Boolean(isFollowingAuthor))
+  }, [currentUser, authorId])
+
+  const requireAuth = () => {
     if (!isAuthenticated) {
       setShowLogin(true)
       return false
@@ -57,237 +80,201 @@ useEffect(() => {
     return true
   }
 
- const [isLiking, setIsLiking] = useState(false)
+  const handleLike = async () => {
+    if (!requireAuth()) return
+    if (isLiking) return
 
-const handleLike = async () => {
-  if (!requireAuth()) return
-  if (isLiking) return // 🔥 prevent spam clicks
+    setIsLiking(true)
 
-  setIsLiking(true)
+    const prevLiked = liked
+    const prevCount = likeCount
 
-  const prevLiked = liked
-  const prevCount = likeCount
+    setLiked(!prevLiked)
+    setLikeCount(prevLiked ? prevCount - 1 : prevCount + 1)
 
-  // ⚡ Optimistic UI
-  setLiked(!prevLiked)
-  setLikeCount(prevLiked ? prevCount - 1 : prevCount + 1)
+    try {
+      const res = await postService.toggleLike(post.id)
+      setLiked(res.liked)
+      setLikeCount(res.likes)
+      onLike?.(res)
+    } catch (err) {
+      console.error(err)
+      setLiked(prevLiked)
+      setLikeCount(prevCount)
+    }
 
-  try {
-    const res = await postService.toggleLike(post.id)
-
-    // ✅ sync with backend
-    setLiked(res.liked)
-    setLikeCount(res.likes)
-  } catch (err) {
-    console.error(err)
-
-    // 🔁 FULL rollback (fixes your bug)
-    setLiked(prevLiked)
-    setLikeCount(prevCount)
+    setIsLiking(false)
   }
-
-  setIsLiking(false)
-}
-const handleDoubleClick = () => {
-  if (!liked) {
-    handleLike()
-  }
-}
 
   const handleBookmark = () => {
     if (!requireAuth()) return
-    setBookmarked(p => !p)
+    setBookmarked((p) => !p)
   }
 
   const handleComment = () => {
     if (!requireAuth()) return
-    setShowComments(p => !p)
+    setShowComments((p) => !p)
   }
+
   const handleReply = async (commentId) => {
-  if (!replyText.trim()) return
+    if (!canComment) return
+    if (!replyText.trim()) return
 
-  const text = replyText
-  setReplyText('')
+    const text = replyText
+    setReplyText('')
 
-  try {
-    const res = await postService.addReply(post.id, commentId, text)
-    setComments(res.comments)
-    setActiveReply(null)
-  } catch (err) {
-    console.error(err)
-  }
-}
-const handleSendComment = async (e) => {
-  e.preventDefault()
-  if (!comment.trim()) return
-
-  const text = comment
-  setComment('')
-
-  // 🔥 optimistic UI
-  const tempComment = {
-    id: Date.now(),
-    author: currentUser,
-    text,
-    createdAt: new Date().toISOString(),
+    try {
+      const res = await postService.addReply(post.id, commentId, text)
+      setComments(res.comments)
+      setActiveReply(null)
+    } catch (err) {
+      console.error(err)
+    }
   }
 
+  const handleSendComment = async (e) => {
+    e.preventDefault()
+    if (!canComment) return
+    if (!comment.trim()) return
 
-  setComments(prev => [...prev, tempComment])
-  
+    const text = comment
+    setComment('')
 
-setCommentCount(prev => prev + 1)
+    const tempComment = {
+      id: Date.now(),
+      user: currentUser,
+      text,
+      createdAt: new Date().toISOString(),
+    }
 
+    setComments((prev) => [...prev, tempComment])
+    setCommentCount((prev) => prev + 1)
 
-  try {
-    const res = await postService.addComment(post.id, text)
-
-    // 🔥 SYNC WITH BACKEND (IMPORTANT)
-    setComments(res.comments)
-
-    setCommentCount(prev => prev + 1)
-  } catch (err) {
-    console.error(err)
+    try {
+      const res = await postService.addComment(post.id, text)
+      setComments(res.comments)
+      setCommentCount(res.comments.length)
+    } catch (err) {
+      console.error(err)
+    }
   }
-}
+
   const handleShare = () => {
     if (!requireAuth()) return
     navigator.clipboard?.writeText(window.location.origin + '/post/' + post.id)
   }
-const [isFollowing, setIsFollowing] = useState(false)
-const [followLoading, setFollowLoading] = useState(false)
-useEffect(() => {
-  if (!currentUser || !authorId) {
-    setIsFollowing(false)
-    return
+
+  const handleFollow = async () => {
+    if (!requireAuth()) return
+    if (!authorId || currentUser?._id === authorId || followLoading) return
+
+    const previousState = isFollowing
+    setFollowLoading(true)
+    setIsFollowing(!previousState)
+
+    try {
+      const response = await userService.toggleFollow(authorId)
+      const newState = Boolean(response?.isFollowing)
+
+      setIsFollowing(newState)
+      updateFollowing(authorId, newState)
+      onFollowChange?.({
+        authorId,
+        isFollowing: newState,
+        followersCount: response?.followersCount,
+        followingCount: response?.followingCount,
+      })
+    } catch (err) {
+      console.error(err)
+      setIsFollowing(previousState)
+    } finally {
+      setFollowLoading(false)
+    }
   }
 
-  const isFollowingAuthor = currentUser.following?.some(
-    (id) => id.toString() === authorId.toString()
-  )
-
-  setIsFollowing(Boolean(isFollowingAuthor))
-}, [currentUser, authorId])
-const handleFollow = async () => {
-  if (!requireAuth()) return
-  if (!authorId || currentUser?._id === authorId || followLoading) return
-
-  const previousState = isFollowing
-  setFollowLoading(true)
-  setIsFollowing(!previousState)
-
-  try {
-    const response = await userService.toggleFollow(authorId)
-    const newState = Boolean(response?.isFollowing)
-
-    setIsFollowing(newState)
-    updateFollowing(authorId, newState)
-    onFollowChange?.({
-      authorId,
-      isFollowing: newState,
-      followersCount: response?.followersCount,
-      followingCount: response?.followingCount,
-    })
-  } catch (err) {
-    console.error(err)
-    setIsFollowing(previousState)
-  } finally {
-    setFollowLoading(false)
-  }
-}
-    return (
+  return (
     <>
-      <article 
-      className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden hover:border-surface-700/60 transition-all duration-200 animate-fade-in">
-        {/* Header */}
+      <article className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden hover:border-surface-700/60 transition-all duration-200 animate-fade-in">
         <div className="flex items-start justify-between px-5 pt-5 pb-3">
-  {/* LEFT SIDE */}
-  <div className="flex items-center gap-3">
-    <Link to={`/profile/${post.author.username}`} className="flex-shrink-0">
-      <UserAvatar user={post.author} size="md" />
-    </Link>
-    <div>
-      <div className="flex items-center gap-1.5">
-        <Link
-          to={`/profile/${post.author.username}`}
-          className="font-semibold text-white text-sm hover:text-brand-400 transition-colors"
-        >
-          {post.author.name}
-        </Link>
-        {post.author.verified && (
-          <span className="text-brand-400">
-            <CheckCheck className="w-3.5 h-3.5" />
-          </span>
-        )}
-      </div>
-      <p className="text-xs text-surface-500">
-        {post.author.role && <>{post.author.role} · </>}
-        {formatRelativeTime(post.createdAt)}
-      </p>
-    </div>
-  </div>
+          <div className="flex items-center gap-3">
+            <Link to={`/profile/${post.author.username}`} className="flex-shrink-0">
+              <UserAvatar user={post.author} size="md" />
+            </Link>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <Link
+                  to={`/profile/${post.author.username}`}
+                  className="font-semibold text-white text-sm hover:text-brand-400 transition-colors"
+                >
+                  {post.author.name}
+                </Link>
+                {post.author.verified && (
+                  <span className="text-brand-400">
+                    <CheckCheck className="w-3.5 h-3.5" />
+                  </span>
+                )}
+                {post.type === 'question' && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                    Question
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-surface-500">
+                {post.author.role && <>{post.author.role} · </>}
+                {formatRelativeTime(post.createdAt)}
+              </p>
+            </div>
+          </div>
 
-  {/* 🔥 RIGHT SIDE (FOLLOW + MENU) */}
-<div className="flex items-center gap-2 relative z-50">
+          <div className="flex items-center gap-2 relative z-50">
+            {currentUser?._id !== authorId && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleFollow()
+                }}
+                disabled={followLoading}
+                className={`text-xs px-3 py-1.5 rounded-lg transition ${
+                  isFollowing
+                    ? 'bg-dark-hover text-surface-400'
+                    : 'bg-brand-600 text-white hover:bg-brand-500'
+                } ${followLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
+              </button>
+            )}
 
-  {/* ✅ FOLLOW BUTTON (PUT BACK HERE) */}
-      {currentUser?._id !== authorId && (
-    <button
-      onClick={(e) => {
-        e.stopPropagation()
-        handleFollow()
-      }}
-      disabled={followLoading}
-      className={`text-xs px-3 py-1.5 rounded-lg transition ${
-        isFollowing
-          ? 'bg-dark-hover text-surface-400'
-          : 'bg-brand-600 text-white hover:bg-brand-500'
-      } ${followLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-    >
-      {followLoading
-        ? '...'
-        : isFollowing
-          ? 'Following'
-          : 'Follow'}
-    </button>
-  )}
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowMenu((p) => !p)
+                }}
+                className="p-1.5 rounded-lg text-surface-600 hover:text-surface-300 hover:bg-dark-hover transition-all"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
 
-  {/* ✅ MENU BUTTON (SEPARATE — NOT INSIDE FOLLOW CONDITION) */}
-  <div className="relative">
-    <button
-      onClick={(e) => {
-        e.stopPropagation()
-        setShowMenu(p => !p)
-      }}
-      className="p-1.5 rounded-lg text-surface-600 hover:text-surface-300 hover:bg-dark-hover transition-all"
-    >
-      <MoreHorizontal className="w-4 h-4" />
-    </button>
+              {showMenu && (
+                <div className="absolute right-0 mt-2 w-36 bg-dark-card border border-dark-border rounded-lg shadow-lg z-50">
+                  <button className="block w-full text-left px-3 py-2 text-sm hover:bg-dark-hover">
+                    Report
+                  </button>
+                  <button className="block w-full text-left px-3 py-2 text-sm hover:bg-dark-hover">
+                    Copy Link
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
-    {showMenu && (
-      <div className="absolute right-0 mt-2 w-36 bg-dark-card border border-dark-border rounded-lg shadow-lg z-50">
-        <button className="block w-full text-left px-3 py-2 text-sm hover:bg-dark-hover">
-          Report
-        </button>
-        <button className="block w-full text-left px-3 py-2 text-sm hover:bg-dark-hover">
-          Copy Link
-        </button>
-      </div>
-    )}
-  </div>
-
-</div>
-      </div>    
-        
-
-        {/* Content */}
         <div className="px-5 pb-3">
           <p className="text-surface-200 text-sm leading-relaxed whitespace-pre-line">
             {post.content}
           </p>
         </div>
 
-        {/* Code snippet */}
         {post.codeSnippet && (
           <div className="mx-5 mb-3 rounded-xl bg-dark-bg border border-dark-border overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-2 border-b border-dark-border">
@@ -300,22 +287,19 @@ const handleFollow = async () => {
           </div>
         )}
 
-        {/* Tags */}
         {post.tags?.length > 0 && (
           <div className="px-5 pb-3 flex flex-wrap gap-1.5">
-            {post.tags.map(tag => (
+            {post.tags.map((tag) => (
               <SkillTag key={tag} skill={`#${tag}`} />
             ))}
           </div>
         )}
 
-        {/* Stats */}
         <div className="px-5 pb-2 flex items-center gap-4 text-xs text-surface-600">
           <span>{formatNumber(likeCount)} likes</span>
           <span>{formatNumber(commentCount)} comments</span>
         </div>
 
-        {/* Actions */}
         <div className="px-3 py-2 border-t border-dark-border flex items-center gap-1">
           <button
             onClick={handleLike}
@@ -361,120 +345,120 @@ const handleFollow = async () => {
           </button>
         </div>
 
-        {/* Comments section */}
-{showComments && (
-  <div className="border-t border-dark-border animate-slide-up">
+        {showComments && (
+          <div className="border-t border-dark-border animate-slide-up">
+            {loadingComments && (
+              <div className="px-5 py-3 text-sm text-surface-500">Loading comments...</div>
+            )}
 
-    {comments.length > 0 && (
-      <div className="px-5 py-3 space-y-4 max-h-72 overflow-y-auto">
+            {comments.length > 0 && (
+              <div className="px-5 py-3 space-y-4 max-h-72 overflow-y-auto">
+                {comments.map((c) => (
+                  <div key={c._id || c.id} className="space-y-2">
+                    <div className="flex gap-3">
+                      <UserAvatar user={c.user} size="sm" />
 
-        {comments.map(c => (
-          <div key={c._id || c.id} className="space-y-2">
+                      <div className="flex-1 bg-dark-bg rounded-xl p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-semibold text-white">
+                            {c.user?.name}
+                          </span>
+                          <span className="text-xs text-surface-600">
+                            {formatRelativeTime(c.createdAt)}
+                          </span>
+                        </div>
 
-            {/* 🔹 MAIN COMMENT */}
-            <div className="flex gap-3">
-              <UserAvatar user={c.user} size="sm" />
+                        <p className="text-sm text-surface-300">{c.text}</p>
 
-              <div className="flex-1 bg-dark-bg rounded-xl p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-semibold text-white">
-                    {c.user?.name}
-                  </span>
-                  <span className="text-xs text-surface-600">
-                    {formatRelativeTime(c.createdAt)}
-                  </span>
-                </div>
-
-                <p className="text-sm text-surface-300">{c.text}</p>
-
-                {/* 🔥 REPLY BUTTON */}
-                <button
-                  onClick={() => setActiveReply(c._id)}
-                  className="text-xs text-brand-400 mt-2 hover:underline"
-                >
-                  Reply
-                </button>
-              </div>
-            </div>
-
-            {/* 🔥 REPLIES */}
-            {c.replies?.length > 0 && (
-              <div className="ml-10 space-y-2">
-                {c.replies.map(r => (
-                  <div key={r._id} className="flex gap-3">
-                    <UserAvatar user={r.user} size="sm" />
-
-                    <div className="flex-1 bg-dark-bg rounded-xl p-2.5">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-semibold text-white">
-                          {r.user?.name}
-                        </span>
-                        <span className="text-xs text-surface-600">
-                          {formatRelativeTime(r.createdAt)}
-                        </span>
+                        {canComment && (
+                          <button
+                            onClick={() => setActiveReply(c._id)}
+                            className="text-xs text-brand-400 mt-2 hover:underline"
+                          >
+                            Reply
+                          </button>
+                        )}
                       </div>
-
-                      <p className="text-sm text-surface-300">{r.text}</p>
                     </div>
+
+                    {c.replies?.length > 0 && (
+                      <div className="ml-10 space-y-2">
+                        {c.replies.map((r) => (
+                          <div key={r._id} className="flex gap-3">
+                            <UserAvatar user={r.user} size="sm" />
+
+                            <div className="flex-1 bg-dark-bg rounded-xl p-2.5">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-semibold text-white">
+                                  {r.user?.name}
+                                </span>
+                                <span className="text-xs text-surface-600">
+                                  {formatRelativeTime(r.createdAt)}
+                                </span>
+                              </div>
+
+                              <p className="text-sm text-surface-300">{r.text}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {canComment && activeReply === c._id && (
+                      <div className="ml-10 flex items-center gap-2 mt-2">
+                        <input
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder="Write a reply..."
+                          className="flex-1 bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-sm text-white"
+                        />
+
+                        <button
+                          onClick={() => handleReply(c._id)}
+                          className="px-3 py-1.5 text-xs bg-brand-600 text-white rounded-lg"
+                        >
+                          Reply
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
 
-            {/* 🔥 REPLY INPUT */}
-            {activeReply === c._id && (
-              <div className="ml-10 flex items-center gap-2 mt-2">
-                <input
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="Write a reply..."
-                  className="flex-1 bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-sm text-white"
-                />
-
-                <button
-                  onClick={() => handleReply(c._id)}
-                  className="px-3 py-1.5 text-xs bg-brand-600 text-white rounded-lg"
-                >
-                  Reply
-                </button>
+            {!canComment && commentPermissionMessage && (
+              <div className="px-5 py-3 border-t border-dark-border text-xs text-yellow-400">
+                {commentPermissionMessage}
               </div>
             )}
 
+            {isAuthenticated && canComment && (
+              <form
+                onSubmit={handleSendComment}
+                className="flex items-center gap-3 px-5 py-3 border-t border-dark-border"
+              >
+                <UserAvatar user={currentUser} size="sm" />
+
+                <div className="flex-1 flex items-center gap-2">
+                  <input
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Write a comment..."
+                    className="flex-1 bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-sm text-white"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={!comment.trim()}
+                    className="p-2 rounded-xl bg-brand-600 text-white disabled:opacity-40"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
-        ))}
-
-      </div>
-    )}
-
-    {/* 🔥 ADD COMMENT */}
-    {isAuthenticated && (
-      <form
-        onSubmit={handleSendComment}
-        className="flex items-center gap-3 px-5 py-3 border-t border-dark-border"
-      >
-        <UserAvatar user={currentUser} size="sm" />
-
-        <div className="flex-1 flex items-center gap-2">
-          <input
-            value={comment}
-            onChange={e => setComment(e.target.value)}
-            placeholder="Write a comment..."
-            className="flex-1 bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-sm text-white"
-          />
-
-          <button
-            type="submit"
-            disabled={!comment.trim()}
-            className="p-2 rounded-xl bg-brand-600 text-white disabled:opacity-40"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-      </form>
-    )}
-
-  </div>
-)}
+        )}
       </article>
 
       <LoginPromptModal

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 import { forumService } from '../services/forumService'
 import { useAuth } from './AuthContext'
 
@@ -9,25 +9,31 @@ export function ForumProvider({ children }) {
   const [forums, setForums] = useState([])
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    forumService.getForums().then(data => {
+  const loadForums = async () => {
+    setIsLoading(true)
+    try {
+      const data = await forumService.getForums()
       setForums(data)
+    } catch (err) {
+      console.error(err)
+      setForums([])
+    } finally {
       setIsLoading(false)
-    })
-  }, [])
-
-  const applyToForum = async (forumId) => {
-    const result = await forumService.applyToForum(forumId)
-    if (result.success) {
-      setForums(prev =>
-        prev.map(f => f.id === forumId ? { ...f, memberStatus: 'applied' } : f)
-      )
     }
-    return result
+  }
+
+  useEffect(() => {
+    loadForums()
+  }, [isAuthenticated])
+
+  const joinForum = async (forumId) => {
+    const updatedForum = await forumService.joinForum(forumId)
+    setForums((prev) => prev.map((forum) => (forum.id === forumId ? updatedForum : forum)))
+    return updatedForum
   }
 
   return (
-    <ForumContext.Provider value={{ forums, isLoading, applyToForum }}>
+    <ForumContext.Provider value={{ forums, isLoading, joinForum, refreshForums: loadForums }}>
       {children}
     </ForumContext.Provider>
   )
